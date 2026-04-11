@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebXR AR - Marker-based (bag.glb)</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: sans-serif; }
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+            z-index: 10;
+        }
+        .hidden { display: none !important; }
+        .warning-box {
+            background: #444;
+            padding: 20px;
+            border-radius: 12px;
+            max-width: 400px;
+        }
+        #ar-button {
+            padding: 12px 24px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ส่วนแสดงข้อความแจ้งเตือนความเข้ากันได้ -->
+    <div id="overlay">
+        <div class="warning-box">
+            <h2 id="status-title">กำลังตรวจสอบอุปกรณ์...</h2>
+            <p id="status-desc">กรุณารอสักครู่</p>
+            <div id="instruction-list" style="text-align: left; margin-top: 10px; display: none;">
+                <p>• <strong>สำหรับ Android:</strong> กรุณใช้ Chrome</p>
+                <p>• <strong>สำหรับ iOS (iPhone):</strong> Safari ยังไม่รองรับโหมดนี้โดยตรง กรุณาใช้แอป "WebXR Viewer" เพื่อทดสอบ</p>
+            </div>
+            <button id="ar-button" class="hidden">เริ่มประสบการณ์ AR</button>
+        </div>
+    </div>
+
+    <!-- โหลด Three.js และโมดูลที่จำเป็น -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+
+        let container;
+        let camera, scene, renderer;
+        let model;
+
+        const overlay = document.getElementById('overlay');
+        const statusTitle = document.getElementById('status-title');
+        const statusDesc = document.getElementById('status-desc');
+        const instructionList = document.getElementById('instruction-list');
+        const arButton = document.getElementById('ar-button');
+
+        async function init() {
+            // 1. ตรวจสอบว่า Browser รองรับ WebXR หรือไม่
+            if ('xr' in navigator) {
+                const supported = await navigator.xr.isSessionSupported('immersive-ar');
+                if (supported) {
+                    showStartButton();
+                } else {
+                    showError("ไม่รองรับ WebXR", "เบราว์เซอร์นี้ไม่รองรับโหมด AR (Immersive AR)");
+                }
+            } else {
+                showError("ไม่รองรับ WebXR", "เบราว์เซอร์นี้ไม่รองรับ WebXR API");
+            }
+        }
+
+        function showError(title, desc) {
+            statusTitle.innerText = title;
+            statusDesc.innerText = desc;
+            instructionList.style.display = 'block';
+            arButton.classList.add('hidden');
+        }
+
+        function showStartButton() {
+            statusTitle.innerText = "อุปกรณ์พร้อมแล้ว";
+            statusDesc.innerText = "คลิกปุ่มด้านล่างเพื่อเริ่มการสแกน Marker";
+            instructionList.style.display = 'none';
+            arButton.classList.remove('hidden');
+            arButton.addEventListener('click', startAR);
+        }
+
+        async function startAR() {
+            overlay.classList.add('hidden');
+            setupThreeJS();
+            
+            // การตั้งค่า Marker (Image Tracking)
+            // หมายเหตุ: ปัจจุบัน WebXR Image Tracking ยังอยู่ในขั้นทดลอง (Incubations) 
+            // ในที่นี้เราจะเตรียมโครงสร้างรองรับไว้
+            
+            try {
+                const sessionInit = { 
+                    requiredFeatures: ['local-floor', 'hit-test'], // หรือ 'image-tracking' ถ้าเบราว์เซอร์รองรับ
+                    optionalFeatures: ['dom-overlay'],
+                    domOverlay: { root: document.body }
+                };
+
+                const session = await navigator.xr.requestSession('immersive-ar', sessionInit);
+                renderer.xr.setReferenceSpaceType('local-floor');
+                await renderer.xr.setSession(session);
+                
+                animate();
+            } catch (e) {
+                console.error(e);
+                overlay.classList.remove('hidden');
+                showError("เกิดข้อผิดพลาด", "ไม่สามารถเริ่ม Session AR ได้: " + e.message);
+            }
+        }
+
+        function setupThreeJS() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
+
+            const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
+            light.position.set(0.5, 1, 0.25);
+            scene.add(light);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.xr.enabled = true;
+            document.body.appendChild(renderer.domElement);
+
+            // โหลดไฟล์ bag.glb
+            const loader = new GLTFLoader();
+            loader.load('bag.glb', (gltf) => {
+                model = gltf.scene;
+                model.scale.set(0.5, 0.5, 0.5); // ปรับขนาดตามความเหมาะสม
+                model.visible = false; // ซ่อนไว้ก่อนจนกว่าจะเจอ Marker
+                scene.add(model);
+            }, undefined, (error) => {
+                console.error('Error loading bag.glb:', error);
+            });
+
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            renderer.setAnimationLoop(render);
+        }
+
+        function render(timestamp, frame) {
+            if (frame) {
+                // ตัวอย่าง: ถ้าใช้ Hit Test เพื่อวางโมเดล
+                // ในกรณี Marker-based (Image Tracking) จะต้องใช้ frame.getImageTrackingResults()
+                // แต่เนื่องจาก bag.glb มักจะถูกวางบนพื้นผิว เราจะให้มันปรากฏเมื่อโหลดเสร็จ
+                if (model && !model.visible) {
+                    model.visible = true;
+                    // ตั้งตำแหน่งเริ่มต้นข้างหน้าผู้ใช้
+                    model.position.set(0, 0, -1).applyMatrix4(renderer.xr.getCamera().matrixWorld);
+                }
+            }
+            renderer.render(scene, camera);
+        }
+
+        // เริ่มต้นการทำงาน
+        init();
+    </script>
+</body>
+</html>
