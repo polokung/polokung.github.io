@@ -1,85 +1,116 @@
 <!DOCTYPE html>
-<html>
+<html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
-    <title>Fixed AR.js Marker</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/three.js/build/ar.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Web AR on GitHub Pages</title>
     <style>
-        body { margin: 0; overflow: hidden; }
-        canvas { position: absolute; top: 0; left: 0; }
+        body { margin: 0; overflow: hidden; font-family: sans-serif; background: #000; }
+        #info-text {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.8); color: white; padding: 12px 24px;
+            border-radius: 30px; z-index: 100; text-align: center; width: 250px;
+        }
     </style>
 </head>
 <body>
-    <script>
-        // 1. ตั้งค่าพื้นฐาน
-        const scene = new THREE.Scene();
-        const camera = new THREE.Camera();
-        scene.add(camera);
 
-        const renderer = new THREE.WebGLRenderer({
-            antialias: true,
-            alpha: true
-        });
-        renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.body.appendChild(renderer.domElement);
+    <div id="info-text">รอสักครู่... กำลังเปิดกล้อง</div>
 
-        // 2. ตั้งค่า AR Toolkit (ตัวจัดการกล้อง)
-        const arToolkitSource = new THREEx.ArToolkitSource({
-            sourceType: 'webcam',
-        });
-
-        arToolkitSource.init(function onReady(){
-            setTimeout(() => {
-                onResize();
-            }, 2000);
-        });
-
-        const arToolkitContext = new THREEx.ArToolkitContext({
-            cameraParametersUrl: 'https://raw.githack.com/AR-js-org/AR.js/master/data/data/camera_para.dat',
-            detectionMode: 'mono',
-        });
-
-        arToolkitContext.init(function onCompleted(){
-            camera.projectionMatrix.copy(arToolkitContext.getProjectionMatrix());
-        });
-
-        // 3. สร้าง Marker (ใช้ Hiro Marker)
-        const markerRoot = new THREE.Group();
-        scene.add(markerRoot);
-        new THREEx.ArMarkerControls(arToolkitContext, markerRoot, {
-            type: 'pattern',
-            patternUrl: 'https://raw.githack.com/AR-js-org/AR.js/master/data/data/patt.hiro',
-        });
-
-        // 4. เพิ่มวัตถุ (Cube) ลงใน Marker
-        const geometry = new THREE.BoxGeometry(1, 1, 1);
-        const material = new THREE.MeshNormalMaterial({ transparent: true, opacity: 0.8 });
-        const mesh = new THREE.Mesh(geometry, material);
-        mesh.position.y = 0.5; 
-        markerRoot.add(mesh);
-
-        // 5. Animation Loop
-        function animate() {
-            requestAnimationFrame(animate);
-            if (arToolkitSource.ready === false) return;
-            arToolkitContext.update(arToolkitSource.domElement);
-            mesh.rotation.y += 0.05;
-            renderer.render(scene, camera);
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+            }
         }
+    </script>
+
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/three.js/build/ar.js"></script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+        let scene, camera, renderer, arToolkitSource, arToolkitContext, markerRoot, model;
+        const infoText = document.getElementById('info-text');
+
+        init();
         animate();
 
-        // จัดการหน้าจอ
-        function onResize(){
+        function init() {
+            scene = new THREE.Scene();
+            
+            // แสงสว่าง
+            scene.add(new THREE.AmbientLight(0xffffff, 1.5));
+            const dLight = new THREE.DirectionalLight(0xffffff, 1);
+            dLight.position.set(1, 1, 1);
+            scene.add(dLight);
+
+            camera = new THREE.Camera();
+            scene.add(camera);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.domElement.style.position = 'absolute';
+            renderer.domElement.style.top = '0';
+            renderer.domElement.style.left = '0';
+            document.body.appendChild(renderer.domElement);
+
+            // AR Toolkit Setup
+            arToolkitSource = new THREEx.ArToolkitSource({ sourceType: 'webcam' });
+            arToolkitSource.init(() => {
+                setTimeout(() => onResize(), 2000);
+                infoText.innerText = "ส่องไปที่ Hiro Marker";
+            });
+
+            arToolkitContext = new THREEx.ArToolkitContext({
+                cameraParametersUrl: 'https://raw.githack.com/AR-js-org/AR.js/master/data/data/camera_para.dat',
+                detectionMode: 'mono',
+            });
+            arToolkitContext.init(() => {
+                camera.projectionMatrix.copy(arToolkitContext.getProjectionMatrix());
+            });
+
+            // Marker Setting
+            markerRoot = new THREE.Group();
+            scene.add(markerRoot);
+            new THREEx.ArMarkerControls(arToolkitContext, markerRoot, {
+                type: 'pattern',
+                patternUrl: 'https://raw.githack.com/AR-js-org/AR.js/master/data/data/patt.hiro',
+            });
+
+            // Load Model
+            const loader = new GLTFLoader();
+            const modelUrl = 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/DamagedHelmet/glTF-Binary/DamagedHelmet.glb';
+            
+            loader.load(modelUrl, (gltf) => {
+                model = gltf.scene;
+                model.scale.set(0.5, 0.5, 0.5);
+                model.position.y = 0.5;
+                markerRoot.add(model);
+            });
+
+            window.addEventListener('resize', onResize);
+        }
+
+        function onResize() {
             arToolkitSource.onResizeElement();
             arToolkitSource.copyElementSizeTo(renderer.domElement);
-            if(arToolkitContext.arController !== null){
+            if (arToolkitContext.arController !== null) {
                 arToolkitSource.copyElementSizeTo(arToolkitContext.arController.canvas);
             }
         }
-        window.addEventListener('resize', function(){ onResize(); });
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if (arToolkitSource.ready) {
+                arToolkitContext.update(arToolkitSource.domElement);
+            }
+            if (model) model.rotation.y += 0.02;
+            renderer.render(scene, camera);
+        }
     </script>
 </body>
 </html>
