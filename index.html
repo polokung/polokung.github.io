@@ -10,52 +10,83 @@
             padding: 0;
             overflow: hidden;
             font-family: sans-serif;
+            background-color: #000;
         }
         #ui-container {
             position: absolute;
-            bottom: 20px;
+            bottom: 40px;
             left: 50%;
             transform: translateX(-50%);
             z-index: 100;
-            display: none; /* แสดงเมื่อเริ่ม AR */
+            display: none;
         }
         #place-button {
-            padding: 15px 30px;
+            padding: 18px 36px;
             background-color: #007bff;
             color: white;
             border: none;
             border-radius: 50px;
             font-size: 18px;
             font-weight: bold;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
             cursor: pointer;
+            touch-action: manipulation;
         }
         #place-button:active {
             background-color: #0056b3;
+            transform: scale(0.95);
         }
         #info-text {
             position: absolute;
-            top: 20px;
+            top: 40px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(0,0,0,0.5);
+            background: rgba(0,0,0,0.7);
             color: white;
-            padding: 10px 20px;
-            border-radius: 20px;
+            padding: 12px 24px;
+            border-radius: 30px;
             pointer-events: none;
             text-align: center;
+            width: 80%;
+            max-width: 400px;
+            font-size: 14px;
+            z-index: 100;
         }
+        /* สำหรับแจ้งเตือนเมื่อไม่รองรับ */
+        #error-message {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            color: black;
+            padding: 25px;
+            border-radius: 15px;
+            text-align: center;
+            width: 85%;
+            display: none;
+            z-index: 1000;
+        }
+        #error-message h2 { margin-top: 0; color: #d9534f; }
     </style>
 </head>
 <body>
 
     <div id="info-text">กำลังโหลดระบบ AR...</div>
     
+    <div id="error-message">
+        <h2>ไม่รองรับ WebXR</h2>
+        <p id="error-detail">ขออภัย อุปกรณ์หรือเบราว์เซอร์ของคุณไม่รองรับการทำงาน Web AR</p>
+        <p style="font-size: 0.9em; color: #666;">
+            • สำหรับ <b>Android</b>: กรุณาใช้ Chrome<br>
+            • สำหรับ <b>iOS (iPhone)</b>: Safari ยังไม่รองรับโหมดนี้โดยตรง กรุณาใช้แอป "WebXR Viewer" เพื่อทดสอบ
+        </p>
+    </div>
+
     <div id="ui-container">
         <button id="place-button">วางวัตถุตรงนี้</button>
     </div>
 
-    <!-- โหลด Three.js และโมดูลที่จำเป็น -->
     <script type="importmap">
         {
             "imports": {
@@ -72,7 +103,7 @@
 
         let container;
         let camera, scene, renderer;
-        let reticle; // ตัวชี้ตำแหน่งบนพื้น
+        let reticle;
         let hitTestSource = null;
         let hitTestSourceRequested = false;
         let currentModel = null;
@@ -81,30 +112,47 @@
         const infoText = document.getElementById('info-text');
         const uiContainer = document.getElementById('ui-container');
         const placeButton = document.getElementById('place-button');
+        const errorMessage = document.getElementById('error-message');
 
-        init();
-        animate();
+        async function checkSupport() {
+            if ('xr' in navigator) {
+                const supported = await navigator.xr.isSessionSupported('immersive-ar');
+                if (!supported) {
+                    showError("เบราว์เซอร์นี้ไม่รองรับโหมด AR (Immersive AR)");
+                } else {
+                    init();
+                    animate();
+                }
+            } else {
+                showError("เบราว์เซอร์นี้ไม่มีความสามารถ WebXR (ตรวจไม่พบ navigator.xr)");
+            }
+        }
+
+        function showError(msg) {
+            infoText.style.display = 'none';
+            errorMessage.style.display = 'block';
+            document.getElementById('error-detail').innerText = msg;
+        }
+
+        checkSupport();
 
         function init() {
             container = document.createElement('div');
             document.body.appendChild(container);
 
             scene = new THREE.Scene();
-
             camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
 
             const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 3);
             light.position.set(0.5, 1, 0.25);
             scene.add(light);
 
-            // ตั้งค่า Renderer
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setPixelRatio(window.devicePixelRatio);
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.xr.enabled = true;
             container.appendChild(renderer.domElement);
 
-            // เพิ่มปุ่มเริ่ม AR
             const arButton = ARButton.createButton(renderer, { 
                 requiredFeatures: ['hit-test'],
                 optionalFeatures: ['dom-overlay'],
@@ -112,7 +160,6 @@
             });
             document.body.appendChild(arButton);
 
-            // สร้าง Reticle (วงกลมเล็งตำแหน่ง)
             reticle = new THREE.Mesh(
                 new THREE.RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2),
                 new THREE.MeshBasicMaterial()
@@ -121,41 +168,36 @@
             reticle.visible = false;
             scene.add(reticle);
 
-            // โหลดโมเดล .glb (ตัวอย่างเป็นโมเดลกล่องถ้าหาไฟล์ไม่เจอ)
-            // คุณสามารถเปลี่ยน URL เป็นไฟล์ของคุณเองได้ที่นี่
             const modelUrl = 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/DamagedHelmet/glTF-Binary/DamagedHelmet.glb';
             
             loader.load(modelUrl, (gltf) => {
                 currentModel = gltf.scene;
-                currentModel.scale.set(0.2, 0.2, 0.2); // ปรับขนาดโมเดล
-                infoText.innerText = "ส่องกล้องลงบนพื้นราบเพื่อเริ่ม";
+                currentModel.scale.set(0.2, 0.2, 0.2);
+                infoText.innerText = "หาพื้นที่ราบแล้วกดปุ่มเพื่อเริ่ม";
             }, undefined, (error) => {
-                console.error('โหลดโมเดลไม่สำเร็จ:', error);
-                // สร้างกล่องสำรองถ้าโหลดไฟล์ไม่ได้
                 const geometry = new THREE.BoxGeometry(0.1, 0.1, 0.1);
                 const material = new THREE.MeshPhongMaterial({ color: 0x00ff00 });
                 currentModel = new THREE.Mesh(geometry, material);
-                infoText.innerText = "ใช้โมเดลสำรอง (กล่อง)";
+                infoText.innerText = "ใช้โมเดลสำรอง (Error Loading)";
             });
 
-            // เหตุการณ์เมื่อกดปุ่มวางวัตถุ
             placeButton.addEventListener('click', () => {
                 if (reticle.visible && currentModel) {
                     const modelCopy = currentModel.clone();
                     modelCopy.position.setFromMatrixPosition(reticle.matrix);
                     scene.add(modelCopy);
-                    infoText.innerText = "วางวัตถุแล้ว!";
-                    setTimeout(() => { infoText.innerText = "ส่องหาพื้นที่เพื่อวางเพิ่ม"; }, 2000);
+                    infoText.innerText = "วางสำเร็จ!";
+                    setTimeout(() => { infoText.innerText = "ส่องหาพื้นเพื่อวางต่อ"; }, 2000);
                 }
             });
 
-            // ตรวจสอบการเข้าสู่โหมด AR
             renderer.xr.addEventListener('sessionstart', () => {
                 uiContainer.style.display = 'block';
+                infoText.innerText = "กำลังหาพื้นผิว...";
             });
             renderer.xr.addEventListener('sessionend', () => {
                 uiContainer.style.display = 'none';
-                infoText.innerText = "จบการทำงาน AR";
+                infoText.innerText = "ออกจากโหมด AR";
             });
 
             window.addEventListener('resize', onWindowResize);
@@ -176,39 +218,28 @@
                 const referenceSpace = renderer.xr.getReferenceSpace();
                 const session = renderer.xr.getSession();
 
-                // ขอ Hit Test Source ครั้งแรก
                 if (hitTestSourceRequested === false) {
                     session.requestReferenceSpace('viewer').then((referenceSpace) => {
                         session.requestHitTestSource({ space: referenceSpace }).then((source) => {
                             hitTestSource = source;
                         });
                     });
-                    session.addEventListener('end', () => {
-                        hitTestSourceRequested = false;
-                        hitTestSource = null;
-                    });
                     hitTestSourceRequested = true;
                 }
 
-                // ประมวลผล Hit Test เพื่อหาพื้นราบ
                 if (hitTestSource) {
                     const hitTestResults = frame.getHitTestResults(hitTestSource);
                     if (hitTestResults.length) {
                         const hit = hitTestResults[0];
                         const pose = hit.getPose(referenceSpace);
-
                         reticle.visible = true;
                         reticle.matrix.fromArray(pose.transform.matrix);
-                        
-                        if (placeButton.disabled) placeButton.disabled = false;
                         infoText.innerText = "พร้อมวางวัตถุ";
                     } else {
                         reticle.visible = false;
-                        infoText.innerText = "กำลังหาพื้นผิว...";
                     }
                 }
             }
-
             renderer.render(scene, camera);
         }
     </script>
