@@ -154,7 +154,7 @@
 
             // โหลดไฟล์ bag.glb
             const loader = new GLTFLoader();
-            loader.load('assets/animal_squad.glb', (gltf) => {
+            loader.load('assets/bag.glb', (gltf) => {
                 model = gltf.scene;
                 model.scale.set(0.5, 0.5, 0.5); // ปรับขนาดตามความเหมาะสม
                 model.visible = false; // ซ่อนไว้ก่อนจนกว่าจะเจอ Marker
