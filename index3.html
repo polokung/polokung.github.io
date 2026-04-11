@@ -50,7 +50,7 @@
             <h2 id="status-title">กำลังตรวจสอบอุปกรณ์...</h2>
             <p id="status-desc">กรุณารอสักครู่</p>
             <div id="instruction-list" style="text-align: left; margin-top: 10px; display: none;">
-                <p>• <strong>สำหรับ Android:</strong> กรุณใช้ Chrome</p>
+                <p>• <strong>สำหรับ Android:</strong> กรุณาใช้ Chrome</p>
                 <p>• <strong>สำหรับ iOS (iPhone):</strong> Safari ยังไม่รองรับโหมดนี้โดยตรง กรุณาใช้แอป "WebXR Viewer" เพื่อทดสอบ</p>
             </div>
             <button id="ar-button" class="hidden">เริ่มประสบการณ์ AR</button>
@@ -154,7 +154,7 @@
 
             // โหลดไฟล์ bag.glb
             const loader = new GLTFLoader();
-            loader.load('bag.glb', (gltf) => {
+            loader.load('/assets/animal_squad.glb', (gltf) => {
                 model = gltf.scene;
                 model.scale.set(0.5, 0.5, 0.5); // ปรับขนาดตามความเหมาะสม
                 model.visible = false; // ซ่อนไว้ก่อนจนกว่าจะเจอ Marker
