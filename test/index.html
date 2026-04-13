@@ -34,18 +34,21 @@
     <a-scene
         embedded
         arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3; trackingMethod: best;"
-        renderer="logarithmicDepthBuffer: true; antialias: true; alpha: true;">
-
-        <a-marker id="main-marker" type="pattern"
+        renderer="logarithmicDepthBuffer: true; antialias: true; alpha: true;"
+        cursor="rayOrigin: mouse"
+        raycaster="objects: .clickable"> <a-marker id="main-marker" type="pattern"
                 url="https://raw.githubusercontent.com/jeromeetienne/AR.js/master/data/data/patt.hiro"
                 smooth="true"
                 smoothCount="10"
                 smoothTolerance=".01"
                 smoothThreshold="5">
+
             <a-entity id="content-anchor" scale="0 0 0"></a-entity>
+
         </a-marker>
 
         <a-entity camera></a-entity>
+
     </a-scene>
 
     <script src="app.js"></script>

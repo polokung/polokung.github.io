@@ -18,30 +18,30 @@ async function loadContent() {
 
 // --- 2. Setup Scene ---
 function setupScene(data) {
-    // Load 3D Model
     const model = document.createElement('a-entity');
     model.setAttribute('gltf-model', data.modelUrl);
     model.setAttribute('position', '0 0 0');
     anchor.appendChild(model);
 
-    // Create Hotspots
     data.hotspots.forEach(hp => {
         const sphere = document.createElement('a-sphere');
         sphere.setAttribute('position', hp.position);
-        sphere.setAttribute('radius', '0.08');
+        sphere.setAttribute('radius', '0.1'); // ขยายขนาดให้แตะง่ายขึ้นเล็กน้อย
         sphere.setAttribute('color', '#FF3300');
+
+        // --- จุดสำคัญ: ต้องใส่ class clickable เพื่อให้ raycaster ตรวจเจอ ---
         sphere.setAttribute('class', 'clickable');
+        sphere.setAttribute('emitevents', 'true');
 
-        // Add Pulse Animation
-        sphere.setAttribute('animation', `
-            property: scale; from: 1 1 1; to: 1.3 1.3 1.3;
-            loop: true; dir: alternate; dur: 800
-        `);
-
-        // Click Event
-        sphere.addEventListener('click', () => {
-            showLabel(hp);
+        // ใช้ 'mousedown' หรือ 'click' ของ A-Frame
+        sphere.addEventListener('mousedown', (evt) => {
+            // ป้องกันการทำงานซ้ำซ้อน
+            evt.stopPropagation();
+            showLabel(hp, sphere);
         });
+
+        // Pulse Animation (Visual Clues)
+        sphere.setAttribute('animation', "property: scale; from: 1 1 1; to: 1.4 1.4 1.4; loop: true; dir: alternate; dur: 800");
 
         anchor.appendChild(sphere);
     });
@@ -49,16 +49,19 @@ function setupScene(data) {
     document.getElementById('loading-screen').classList.add('hidden');
 }
 
-// --- 3. Interaction Logic ---
-function showLabel(data) {
-    // Clear previous labels
+function showLabel(data, meshElement) {
     labelContainer.innerHTML = '';
 
     const label = document.createElement('div');
     label.className = 'hotspot-label';
-    label.innerText = `${data.name} (อ่านต่อ...)`;
+    label.innerHTML = `<strong>${data.name}</strong><br><small>แตะเพื่อดูรายละเอียด</small>`;
 
-    label.onclick = () => {
+    // ตั้งค่าให้ Label แสดงผลและกดได้
+    label.style.opacity = "1";
+    label.style.pointerEvents = "auto";
+
+    label.onclick = (e) => {
+        e.stopPropagation();
         document.getElementById('info-title').innerText = data.name;
         document.getElementById('info-body').innerText = data.description;
         popup.classList.remove('popup-hidden');
@@ -66,8 +69,8 @@ function showLabel(data) {
 
     labelContainer.appendChild(label);
 
-    // Update label position via Raycasting/Projecting
-    window.activeHotspotData = { div: label, pos: data.position };
+    // เก็บค่าไว้ให้ฟังก์ชัน animate นำไปคำนวณตำแหน่ง
+    window.activeHotspotData = { div: label, mesh: meshElement };
 }
 
 // Close Popup
