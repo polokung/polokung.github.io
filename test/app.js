@@ -1,3 +1,16 @@
+// --- 1. ต้องลงทะเบียน Component ก่อนเพื่อน ---
+AFRAME.registerComponent('hotspot-handler', {
+    schema: { id: { type: 'int' } },
+    init: function () {
+        this.el.addEventListener('click', (evt) => {
+            // ป้องกัน Event ซ้อนทับ
+            evt.stopPropagation();
+            const hpData = configData.hotspots.find(h => h.id === this.data.id);
+            showLabel(hpData, this.el);
+        });
+    }
+});
+
 // --- Configuration & State ---
 let configData = null;
 const anchor = document.querySelector('#content-anchor');
@@ -5,7 +18,7 @@ const marker = document.querySelector('#main-marker');
 const labelContainer = document.querySelector('#label-container');
 const popup = document.querySelector('#popup-panel');
 
-// --- 1. Load Data ---
+// --- 2. Load Data ---
 async function loadContent() {
     try {
         const response = await fetch('data.json');
@@ -13,10 +26,11 @@ async function loadContent() {
         setupScene(configData);
     } catch (err) {
         console.error("Failed to load JSON data", err);
+        alert("ไม่สามารถโหลด data.json ได้");
     }
 }
 
-// --- 2. Setup Scene ---
+// --- 3. Setup Scene ---
 function setupScene(data) {
     const model = document.createElement('a-entity');
     model.setAttribute('gltf-model', data.modelUrl);
@@ -25,17 +39,20 @@ function setupScene(data) {
 
     data.hotspots.forEach(hp => {
         const sphere = document.createElement('a-sphere');
+        // แปลงพิกัดจาก String ใน JSON เป็น Vector
         sphere.setAttribute('position', hp.position);
-        sphere.setAttribute('radius', '0.15'); // ขยายให้ใหญ่ขึ้นเพื่อทดสอบ
+        sphere.setAttribute('radius', '0.15');
         sphere.setAttribute('color', '#FF3300');
         sphere.setAttribute('class', 'clickable');
-
-        // เรียกใช้ Component ที่เราลงทะเบียนไว้ด้านบน
         sphere.setAttribute('hotspot-handler', `id: ${hp.id}`);
+
+        // เพิ่ม Pulse Animation
+        sphere.setAttribute('animation', "property: scale; from: 1 1 1; to: 1.3 1.3 1.3; loop: true; dir: alternate; dur: 800");
 
         anchor.appendChild(sphere);
     });
 
+    // ซ่อน Loading Screen เมื่อทุกอย่างพร้อม
     document.getElementById('loading-screen').classList.add('hidden');
 }
 
@@ -46,10 +63,6 @@ function showLabel(data, meshElement) {
     label.className = 'hotspot-label';
     label.innerHTML = `<strong>${data.name}</strong><br><small>แตะเพื่อดูรายละเอียด</small>`;
 
-    // ตั้งค่าให้ Label แสดงผลและกดได้
-    label.style.opacity = "1";
-    label.style.pointerEvents = "auto";
-
     label.onclick = (e) => {
         e.stopPropagation();
         document.getElementById('info-title').innerText = data.name;
@@ -59,33 +72,25 @@ function showLabel(data, meshElement) {
 
     labelContainer.appendChild(label);
 
-    // เก็บค่าไว้ให้ฟังก์ชัน animate นำไปคำนวณตำแหน่ง
-    window.activeHotspotData = { div: label, mesh: meshElement };
+    // เก็บ Mesh และข้อมูลตำแหน่งเพื่อใช้ใน animate
+    window.activeHotspotData = { div: label, mesh: meshElement, rawPos: data.position };
 }
-
-this.el.addEventListener('click', (evt) => {
-    alert("แตะโดนจุดที่: " + this.data.id); // ถ้า alert นี้ขึ้น แสดงว่า Raycaster ทำงานแล้ว
-    const hpData = configData.hotspots.find(h => h.id === this.data.id);
-    showLabel(hpData, this.el);
-});
 
 // Close Popup
 document.getElementById('close-btn').onclick = () => {
     popup.classList.add('popup-hidden');
 };
 
-// --- 4. The Reveal Animation (Marker Found) ---
+// --- 4. Animation Logic ---
 let isFound = false;
 
 marker.addEventListener('markerFound', () => {
-    if (isFound) return; // ป้องกันการรันซ้ำถ้ายังแสดงผลอยู่
+    if (isFound) return;
     isFound = true;
-
     document.getElementById('scan-hint').classList.add('hidden');
 
-    // Smooth Scale Up
-    new TWEEN.Tween({ s: anchor.getAttribute('scale').x })
-        .to({ s: 1 }, 800)
+    new TWEEN.Tween({ s: 0 })
+        .to({ s: 1 }, 1000)
         .easing(TWEEN.Easing.Back.Out)
         .onUpdate((obj) => {
             anchor.setAttribute('scale', `${obj.s} ${obj.s} ${obj.s}`);
@@ -94,7 +99,6 @@ marker.addEventListener('markerFound', () => {
 });
 
 marker.addEventListener('markerLost', () => {
-    // แทนที่จะซ่อนทันที ให้รอ 1 วินาทีเผื่อกล้องแค่โฟกัสหลุดชั่วคราว
     setTimeout(() => {
         if (!marker.visible) {
             isFound = false;
@@ -103,30 +107,19 @@ marker.addEventListener('markerLost', () => {
     }, 1000);
 });
 
-AFRAME.registerComponent('hotspot-handler', {
-    schema: { id: { type: 'int' } },
-    init: function () {
-        // ใช้ touchstart ร่วมกับ click เพื่อความไวบนมือถือ
-        this.el.addEventListener('click', (evt) => {
-            console.log("Hit hotspot:", this.data.id); // ดูใน Console ว่าขึ้นไหม
-            const hpData = configData.hotspots.find(h => h.id === this.data.id);
-            showLabel(hpData, this.el);
-        });
-    }
-});
-
-// Loop for TWEEN and UI Sync
 function animate(time) {
     requestAnimationFrame(animate);
     TWEEN.update(time);
 
-    // Logic to sync Label with 3D Position (Simplified for A-Frame)
     if (window.activeHotspotData && marker.visible) {
-        const cam = document.querySelector('[camera]').components.camera.camera;
-        const pos = new THREE.Vector3().copy(window.activeHotspotData.pos);
+        const camEntity = document.querySelector('[camera]');
+        if (!camEntity) return;
 
-        // Convert local to world
-        anchor.object3D.localToWorld(pos);
+        const cam = camEntity.components.camera.camera;
+        const pos = new THREE.Vector3();
+
+        // ดึงตำแหน่ง World Position ของจุดสีแดง
+        window.activeHotspotData.mesh.object3D.getWorldPosition(pos);
         pos.project(cam);
 
         const x = (pos.x * 0.5 + 0.5) * window.innerWidth;
@@ -134,9 +127,11 @@ function animate(time) {
 
         window.activeHotspotData.div.style.left = `${x}px`;
         window.activeHotspotData.div.style.top = `${y}px`;
+        window.activeHotspotData.div.style.opacity = "1";
     } else if (window.activeHotspotData) {
         window.activeHotspotData.div.style.opacity = "0";
     }
 }
+
 requestAnimationFrame(animate);
 loadContent();
