@@ -63,6 +63,10 @@ function showLabel(data, meshElement) {
     window.activeHotspotData = { div: label, mesh: meshElement };
 }
 
+window.addEventListener('click', () => {
+    console.log("Screen clicked at", new Date().getTime());
+});
+
 // Close Popup
 document.getElementById('close-btn').onclick = () => {
     popup.classList.add('popup-hidden');
@@ -98,16 +102,15 @@ marker.addEventListener('markerLost', () => {
 });
 
 AFRAME.registerComponent('hotspot-handler', {
-  schema: {
-    id: {type: 'int'}
-  },
-  init: function () {
-    this.el.addEventListener('click', () => {
-      // ดึงข้อมูลจาก JSON ที่เก็บไว้ในตัวแปร configData
-      const data = configData.hotspots.find(h => h.id === this.data.id);
-      showLabel(data, this.el);
-    });
-  }
+    schema: { id: { type: 'int' } },
+    init: function () {
+        // ใช้ touchstart ร่วมกับ click เพื่อความไวบนมือถือ
+        this.el.addEventListener('click', (evt) => {
+            console.log("Hit hotspot:", this.data.id); // ดูใน Console ว่าขึ้นไหม
+            const hpData = configData.hotspots.find(h => h.id === this.data.id);
+            showLabel(hpData, this.el);
+        });
+    }
 });
 
 // Loop for TWEEN and UI Sync

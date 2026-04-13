@@ -29,7 +29,11 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
     width: 100vw;
     height: 100vh;
     pointer-events: none; /* สำคัญ: ต้องเป็น none เพื่อให้การแตะทะลุลงไปถึงโมเดล */
-    z-index: 10;
+    z-index: 100;
+}
+
+canvas.a-canvas {
+    z-index: 1;
 }
 
 .hotspot-label {
