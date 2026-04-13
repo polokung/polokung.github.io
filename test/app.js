@@ -1,12 +1,16 @@
-// --- 1. ต้องลงทะเบียน Component ก่อนเพื่อน ---
+// --- 1. ต้องลงทะเบียน Component ก่อนการเรียกใช้งานเสมอ ---
 AFRAME.registerComponent('hotspot-handler', {
     schema: { id: { type: 'int' } },
     init: function () {
         this.el.addEventListener('click', (evt) => {
-            // ป้องกัน Event ซ้อนทับ
+            // ป้องกัน Event ส่งต่อไปยังส่วนอื่น
             evt.stopPropagation();
-            const hpData = configData.hotspots.find(h => h.id === this.data.id);
-            showLabel(hpData, this.el);
+
+            if (typeof configData !== 'undefined' && configData) {
+                const hpData = configData.hotspots.find(h => h.id === this.data.id);
+                // เรียกฟังก์ชันแสดง Label
+                showLabel(hpData, this.el);
+            }
         });
     }
 });
@@ -26,7 +30,6 @@ async function loadContent() {
         setupScene(configData);
     } catch (err) {
         console.error("Failed to load JSON data", err);
-        alert("ไม่สามารถโหลด data.json ได้");
     }
 }
 
@@ -39,21 +42,23 @@ function setupScene(data) {
 
     data.hotspots.forEach(hp => {
         const sphere = document.createElement('a-sphere');
-        // แปลงพิกัดจาก String ใน JSON เป็น Vector
         sphere.setAttribute('position', hp.position);
-        sphere.setAttribute('radius', '0.15');
+        sphere.setAttribute('radius', '0.15'); // ขนาดใหญ่พอให้แตะง่าย
         sphere.setAttribute('color', '#FF3300');
-        sphere.setAttribute('class', 'clickable');
+        sphere.setAttribute('class', 'clickable'); // ต้องตรงกับ raycaster objects
+
+        // ผูก Component ที่เราสร้างไว้ข้างบน
         sphere.setAttribute('hotspot-handler', `id: ${hp.id}`);
 
-        // เพิ่ม Pulse Animation
+        // เพิ่ม Animation กะพริบ
         sphere.setAttribute('animation', "property: scale; from: 1 1 1; to: 1.3 1.3 1.3; loop: true; dir: alternate; dur: 800");
 
         anchor.appendChild(sphere);
     });
 
-    // ซ่อน Loading Screen เมื่อทุกอย่างพร้อม
-    document.getElementById('loading-screen').classList.add('hidden');
+    // ซ่อน Loading เมื่อพร้อม
+    const loading = document.getElementById('loading-screen');
+    if(loading) loading.classList.add('hidden');
 }
 
 function showLabel(data, meshElement) {
@@ -61,8 +66,9 @@ function showLabel(data, meshElement) {
 
     const label = document.createElement('div');
     label.className = 'hotspot-label';
-    label.innerHTML = `<strong>${data.name}</strong><br><small>แตะเพื่อดูรายละเอียด</small>`;
+    label.innerHTML = `<strong>${data.name}</strong><br><small>อ่านรายละเอียด...</small>`;
 
+    // เมื่อกดที่ Label ให้เปิด Popup
     label.onclick = (e) => {
         e.stopPropagation();
         document.getElementById('info-title').innerText = data.name;
@@ -72,18 +78,17 @@ function showLabel(data, meshElement) {
 
     labelContainer.appendChild(label);
 
-    // เก็บ Mesh และข้อมูลตำแหน่งเพื่อใช้ใน animate
-    window.activeHotspotData = { div: label, mesh: meshElement, rawPos: data.position };
+    // เก็บข้อมูลไว้ให้ฟังก์ชัน animate คำนวณตำแหน่ง World to Screen
+    window.activeHotspotData = { div: label, mesh: meshElement };
 }
 
-// Close Popup
+// ปุ่มปิด Popup
 document.getElementById('close-btn').onclick = () => {
     popup.classList.add('popup-hidden');
 };
 
-// --- 4. Animation Logic ---
+// --- 4. Logic การปรากฏของโมเดล (The Reveal) ---
 let isFound = false;
-
 marker.addEventListener('markerFound', () => {
     if (isFound) return;
     isFound = true;
@@ -107,19 +112,22 @@ marker.addEventListener('markerLost', () => {
     }, 1000);
 });
 
+// Loop สำหรับ Update ตำแหน่ง UI ตามจุด 3D
 function animate(time) {
     requestAnimationFrame(animate);
     TWEEN.update(time);
 
     if (window.activeHotspotData && marker.visible) {
-        const camEntity = document.querySelector('[camera]');
-        if (!camEntity) return;
+        const camEl = document.querySelector('[camera]');
+        if (!camEl) return;
 
-        const cam = camEntity.components.camera.camera;
+        const cam = camEl.components.camera.camera;
         const pos = new THREE.Vector3();
 
-        // ดึงตำแหน่ง World Position ของจุดสีแดง
+        // ดึงพิกัดจริงของจุดสีแดงในโลก 3D
         window.activeHotspotData.mesh.object3D.getWorldPosition(pos);
+
+        // แปลงเป็นพิกัดหน้าจอ (World to Screen)
         pos.project(cam);
 
         const x = (pos.x * 0.5 + 0.5) * window.innerWidth;

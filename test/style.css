@@ -28,7 +28,7 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
     left: 0;
     width: 100vw;
     height: 100vh;
-    pointer-events: none; /* สำคัญ: ต้องเป็น none เพื่อให้การแตะทะลุลงไปถึงโมเดล */
+    pointer-events: none; /* สำคัญ: ต้องให้คลิกทะลุไปหาจุดสีแดงได้ */
     z-index: 100;
 }
 
