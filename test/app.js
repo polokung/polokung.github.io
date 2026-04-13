@@ -26,22 +26,12 @@ function setupScene(data) {
     data.hotspots.forEach(hp => {
         const sphere = document.createElement('a-sphere');
         sphere.setAttribute('position', hp.position);
-        sphere.setAttribute('radius', '0.1'); // ขยายขนาดให้แตะง่ายขึ้นเล็กน้อย
+        sphere.setAttribute('radius', '0.15'); // ขยายให้ใหญ่ขึ้นเพื่อทดสอบ
         sphere.setAttribute('color', '#FF3300');
-
-        // --- จุดสำคัญ: ต้องใส่ class clickable เพื่อให้ raycaster ตรวจเจอ ---
         sphere.setAttribute('class', 'clickable');
-        sphere.setAttribute('emitevents', 'true');
 
-        // ใช้ 'mousedown' หรือ 'click' ของ A-Frame
-        sphere.addEventListener('mousedown', (evt) => {
-            // ป้องกันการทำงานซ้ำซ้อน
-            evt.stopPropagation();
-            showLabel(hp, sphere);
-        });
-
-        // Pulse Animation (Visual Clues)
-        sphere.setAttribute('animation', "property: scale; from: 1 1 1; to: 1.4 1.4 1.4; loop: true; dir: alternate; dur: 800");
+        // เรียกใช้ Component ที่เราลงทะเบียนไว้ด้านบน
+        sphere.setAttribute('hotspot-handler', `id: ${hp.id}`);
 
         anchor.appendChild(sphere);
     });
@@ -106,6 +96,20 @@ marker.addEventListener('markerLost', () => {
         }
     }, 1000);
 });
+
+AFRAME.registerComponent('hotspot-handler', {
+  schema: {
+    id: {type: 'int'}
+  },
+  init: function () {
+    this.el.addEventListener('click', () => {
+      // ดึงข้อมูลจาก JSON ที่เก็บไว้ในตัวแปร configData
+      const data = configData.hotspots.find(h => h.id === this.data.id);
+      showLabel(data, this.el);
+    });
+  }
+});
+
 // Loop for TWEEN and UI Sync
 function animate(time) {
     requestAnimationFrame(animate);
