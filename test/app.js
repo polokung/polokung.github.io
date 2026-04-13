@@ -63,8 +63,10 @@ function showLabel(data, meshElement) {
     window.activeHotspotData = { div: label, mesh: meshElement };
 }
 
-window.addEventListener('click', () => {
-    console.log("Screen clicked at", new Date().getTime());
+this.el.addEventListener('click', (evt) => {
+    alert("แตะโดนจุดที่: " + this.data.id); // ถ้า alert นี้ขึ้น แสดงว่า Raycaster ทำงานแล้ว
+    const hpData = configData.hotspots.find(h => h.id === this.data.id);
+    showLabel(hpData, this.el);
 });
 
 // Close Popup
