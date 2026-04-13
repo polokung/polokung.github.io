@@ -76,12 +76,17 @@ document.getElementById('close-btn').onclick = () => {
 };
 
 // --- 4. The Reveal Animation (Marker Found) ---
+let isFound = false;
+
 marker.addEventListener('markerFound', () => {
+    if (isFound) return; // ป้องกันการรันซ้ำถ้ายังแสดงผลอยู่
+    isFound = true;
+
     document.getElementById('scan-hint').classList.add('hidden');
 
     // Smooth Scale Up
-    new TWEEN.Tween({ s: 0 })
-        .to({ s: 1 }, 1000)
+    new TWEEN.Tween({ s: anchor.getAttribute('scale').x })
+        .to({ s: 1 }, 800)
         .easing(TWEEN.Easing.Back.Out)
         .onUpdate((obj) => {
             anchor.setAttribute('scale', `${obj.s} ${obj.s} ${obj.s}`);
@@ -90,9 +95,14 @@ marker.addEventListener('markerFound', () => {
 });
 
 marker.addEventListener('markerLost', () => {
-    document.getElementById('scan-hint').classList.remove('hidden');
+    // แทนที่จะซ่อนทันที ให้รอ 1 วินาทีเผื่อกล้องแค่โฟกัสหลุดชั่วคราว
+    setTimeout(() => {
+        if (!marker.visible) {
+            isFound = false;
+            document.getElementById('scan-hint').classList.remove('hidden');
+        }
+    }, 1000);
 });
-
 // Loop for TWEEN and UI Sync
 function animate(time) {
     requestAnimationFrame(animate);
