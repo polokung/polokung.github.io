@@ -1,94 +1,94 @@
-// --- 1. ต้องลงทะเบียน Component ก่อนการเรียกใช้งานเสมอ ---
+// --- 1. ประกาศตัวแปร Global ---
+let configData = null;
+
+// --- 2. ลงทะเบียน Component (ต้องทำก่อน Scene โหลด) ---
 AFRAME.registerComponent('hotspot-handler', {
     schema: { id: { type: 'int' } },
     init: function () {
-        this.el.addEventListener('click', (evt) => {
-            // ป้องกัน Event ส่งต่อไปยังส่วนอื่น
+        // ใช้ทั้ง click และ touchstart เพื่อรองรับทุก Browser
+        const el = this.el;
+        const handler = (evt) => {
             evt.stopPropagation();
-
-            if (typeof configData !== 'undefined' && configData) {
+            if (configData) {
                 const hpData = configData.hotspots.find(h => h.id === this.data.id);
-                // เรียกฟังก์ชันแสดง Label
-                showLabel(hpData, this.el);
+                showLabel(hpData, el);
             }
-        });
+        };
+
+        el.addEventListener('click', handler);
+        el.addEventListener('touchstart', handler);
     }
 });
 
-// --- Configuration & State ---
-let configData = null;
-const anchor = document.querySelector('#content-anchor');
-const marker = document.querySelector('#main-marker');
-const labelContainer = document.querySelector('#label-container');
-const popup = document.querySelector('#popup-panel');
+// --- 3. ฟังก์ชันหลักในการสร้าง Scene ---
+async function initApp() {
+    const anchor = document.querySelector('#content-anchor');
+    const labelContainer = document.querySelector('#label-container');
+    const popup = document.querySelector('#popup-panel');
 
-// --- 2. Load Data ---
-async function loadContent() {
     try {
         const response = await fetch('data.json');
         configData = await response.json();
-        setupScene(configData);
+
+        // สร้าง Model
+        const model = document.createElement('a-entity');
+        model.setAttribute('gltf-model', configData.modelUrl);
+        model.setAttribute('position', '0 0 0');
+        anchor.appendChild(model);
+
+        // สร้าง Hotspots
+        configData.hotspots.forEach(hp => {
+            const sphere = document.createElement('a-sphere');
+            sphere.setAttribute('position', hp.position);
+            sphere.setAttribute('radius', '0.15');
+            sphere.setAttribute('color', '#FF3300');
+            sphere.setAttribute('class', 'clickable'); // สำคัญมากสำหรับ Raycaster
+            sphere.setAttribute('hotspot-handler', `id: ${hp.id}`);
+
+            // Animation กะพริบ
+            sphere.setAttribute('animation', "property: scale; from: 1 1 1; to: 1.3 1.3 1.3; loop: true; dir: alternate; dur: 800");
+
+            anchor.appendChild(sphere);
+        });
+
+        document.getElementById('loading-screen').classList.add('hidden');
+        requestAnimationFrame(animate);
+
     } catch (err) {
-        console.error("Failed to load JSON data", err);
+        console.error("Error:", err);
     }
 }
 
-// --- 3. Setup Scene ---
-function setupScene(data) {
-    const model = document.createElement('a-entity');
-    model.setAttribute('gltf-model', data.modelUrl);
-    model.setAttribute('position', '0 0 0');
-    anchor.appendChild(model);
-
-    data.hotspots.forEach(hp => {
-        const sphere = document.createElement('a-sphere');
-        sphere.setAttribute('position', hp.position);
-        sphere.setAttribute('radius', '0.15'); // ขนาดใหญ่พอให้แตะง่าย
-        sphere.setAttribute('color', '#FF3300');
-        sphere.setAttribute('class', 'clickable'); // ต้องตรงกับ raycaster objects
-
-        // ผูก Component ที่เราสร้างไว้ข้างบน
-        sphere.setAttribute('hotspot-handler', `id: ${hp.id}`);
-
-        // เพิ่ม Animation กะพริบ
-        sphere.setAttribute('animation', "property: scale; from: 1 1 1; to: 1.3 1.3 1.3; loop: true; dir: alternate; dur: 800");
-
-        anchor.appendChild(sphere);
-    });
-
-    // ซ่อน Loading เมื่อพร้อม
-    const loading = document.getElementById('loading-screen');
-    if(loading) loading.classList.add('hidden');
-}
-
+// ฟังก์ชันแสดง Label
 function showLabel(data, meshElement) {
-    labelContainer.innerHTML = '';
+    const container = document.querySelector('#label-container');
+    container.innerHTML = '';
 
     const label = document.createElement('div');
     label.className = 'hotspot-label';
-    label.innerHTML = `<strong>${data.name}</strong><br><small>อ่านรายละเอียด...</small>`;
+    label.innerHTML = `<strong>${data.name}</strong><br><small>แตะเพื่อดูรายละเอียด</small>`;
 
-    // เมื่อกดที่ Label ให้เปิด Popup
     label.onclick = (e) => {
         e.stopPropagation();
         document.getElementById('info-title').innerText = data.name;
         document.getElementById('info-body').innerText = data.description;
-        popup.classList.remove('popup-hidden');
+        document.getElementById('popup-panel').classList.remove('popup-hidden');
     };
 
-    labelContainer.appendChild(label);
-
-    // เก็บข้อมูลไว้ให้ฟังก์ชัน animate คำนวณตำแหน่ง World to Screen
+    container.appendChild(label);
     window.activeHotspotData = { div: label, mesh: meshElement };
 }
 
 // ปุ่มปิด Popup
 document.getElementById('close-btn').onclick = () => {
-    popup.classList.add('popup-hidden');
+    document.getElementById('popup-panel').classList.add('popup-hidden');
 };
 
-// --- 4. Logic การปรากฏของโมเดล (The Reveal) ---
+// --- 4. การจัดการ Marker และ Animation ---
+const marker = document.querySelector('#main-marker');
+const anchorEntity = document.querySelector('#content-anchor');
 let isFound = false;
+
 marker.addEventListener('markerFound', () => {
     if (isFound) return;
     isFound = true;
@@ -98,7 +98,7 @@ marker.addEventListener('markerFound', () => {
         .to({ s: 1 }, 1000)
         .easing(TWEEN.Easing.Back.Out)
         .onUpdate((obj) => {
-            anchor.setAttribute('scale', `${obj.s} ${obj.s} ${obj.s}`);
+            anchorEntity.setAttribute('scale', `${obj.s} ${obj.s} ${obj.s}`);
         })
         .start();
 });
@@ -112,22 +112,15 @@ marker.addEventListener('markerLost', () => {
     }, 1000);
 });
 
-// Loop สำหรับ Update ตำแหน่ง UI ตามจุด 3D
 function animate(time) {
     requestAnimationFrame(animate);
     TWEEN.update(time);
 
     if (window.activeHotspotData && marker.visible) {
-        const camEl = document.querySelector('[camera]');
-        if (!camEl) return;
-
-        const cam = camEl.components.camera.camera;
+        const cam = document.querySelector('[camera]').components.camera.camera;
         const pos = new THREE.Vector3();
 
-        // ดึงพิกัดจริงของจุดสีแดงในโลก 3D
         window.activeHotspotData.mesh.object3D.getWorldPosition(pos);
-
-        // แปลงเป็นพิกัดหน้าจอ (World to Screen)
         pos.project(cam);
 
         const x = (pos.x * 0.5 + 0.5) * window.innerWidth;
@@ -141,5 +134,5 @@ function animate(time) {
     }
 }
 
-requestAnimationFrame(animate);
-loadContent();
+// เริ่มทำงานเมื่อ DOM พร้อม
+window.addEventListener('DOMContentLoaded', initApp);
