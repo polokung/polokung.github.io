@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dynamic AR with MindAR & Three.js</title>
+  <style>
+    body { margin: 0; overflow: hidden; font-family: sans-serif; }
+    #ar-container { width: 100vw; height: 100vh; position: relative; }
+    /* สไตล์สำหรับ HTML Overlay Popup */
+    #popup-overlay {
+      position: absolute; display: none; background: rgba(0, 0, 0, 0.8);
+      color: white; padding: 15px; border-radius: 8px; width: 250px;
+      transform: translate(-50%, -100%); /* ให้อยู่เหนือจุดที่คลิก */
+      pointer-events: auto; z-index: 10;
+    }
+    #popup-overlay h3 { margin: 0 0 10px 0; font-size: 16px; }
+    #popup-overlay p { margin: 0 0 10px 0; font-size: 14px; }
+    #close-btn { background: #ff4d4d; border: none; color: white; padding: 5px 10px; border-radius: 4px; cursor: pointer; width: 100%; }
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.147.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.147.0/examples/jsm/",
+        "mindar-image-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-three.prod.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="ar-container"></div>
+
+  <div id="popup-overlay">
+    <h3 id="popup-title">Title</h3>
+    <p id="popup-desc">Description</p>
+    <button id="close-btn">ปิด</button>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { MindARThree } from 'mindar-image-three';
+
+    // Mock API Fetch (จำลองการดึง JSON)
+    async function fetchARData() {
+      // ในระบบจริงใช้ fetch('api/endpoint')
+      return {
+        "ar_project_id": "001",
+        "marker_url": "https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.2/examples/image-tracking/assets/card-example/card.mind", // ใช้ Marker ตัวอย่าง
+        "model_url": "https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models/2.0/Box/glTF/Box.gltf", // ใช้ Model ตัวอย่าง
+        "hotspots": [
+          { "position": { "x": 0, "y": 0.5, "z": 0.5 }, "title": "จุดทดสอบที่ 1", "description": "นี่คือข้อมูลจำลองจุดแรก" }
+        ]
+      };
+    }
+
+    async function init() {
+      const data = await fetchARData();
+
+      // สร้าง MindAR Three.js Instance
+      const mindarThree = new MindARThree({
+        container: document.querySelector("#ar-container"),
+        imageTargetSrc: data.marker_url
+      });
+
+      const { renderer, scene, camera } = mindarThree;
+      const anchor = mindarThree.addAnchor(0); // ผูกกับ Marker ตัวแรก
+
+      // เพิ่มแสง
+      const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
+      scene.add(light);
+
+      // โหลด Model แบบ Asynchronous
+      const loader = new GLTFLoader();
+      const gltf = await loader.loadAsync(data.model_url);
+      const model = gltf.scene;
+      model.scale.set(0.1, 0.1, 0.1); // ปรับขนาดตามความเหมาะสม
+      anchor.group.add(model);
+
+      // สร้าง Hotspots จาก JSON
+      const hotspotsGroup = new THREE.Group();
+      const interactableObjects = [];
+      const hotspotGeometry = new THREE.SphereGeometry(0.05, 16, 16);
+      const hotspotMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: 0.7 });
+
+      data.hotspots.forEach((hsData, index) => {
+        const sphere = new THREE.Mesh(hotspotGeometry, hotspotMaterial);
+        sphere.position.set(hsData.position.x, hsData.position.y, hsData.position.z);
+        sphere.userData = { title: hsData.title, description: hsData.description }; // เก็บข้อมูลไว้ใน userData
+        hotspotsGroup.add(sphere);
+        interactableObjects.push(sphere);
+      });
+      anchor.group.add(hotspotsGroup);
+
+      // ระบบ Raycaster
+      const raycaster = new THREE.Raycaster();
+      const mouse = new THREE.Vector2();
+      const popup = document.getElementById('popup-overlay');
+      let activeHotspot = null;
+
+      // จัดการการคลิก (Tap)
+      window.addEventListener('pointerdown', (event) => {
+        // แปลงพิกัดหน้าจอเป็นพิกัด Normalized Device Coordinates (NDC)
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(interactableObjects);
+
+        if (intersects.length > 0) {
+          activeHotspot = intersects[0].object;
+          const info = activeHotspot.userData;
+
+          document.getElementById('popup-title').innerText = info.title;
+          document.getElementById('popup-desc').innerText = info.description;
+          popup.style.display = 'block';
+        }
+      });
+
+      // ปิด Popup
+      document.getElementById('close-btn').addEventListener('click', () => {
+        popup.style.display = 'none';
+        activeHotspot = null;
+      });
+
+      // อัปเดตตำแหน่ง Popup ให้ตามโมเดล (World-to-Screen)
+      function updatePopupPosition() {
+        if (activeHotspot && popup.style.display === 'block') {
+          const vector = new THREE.Vector3();
+          activeHotspot.getWorldPosition(vector);
+          vector.project(camera);
+
+          const x = (vector.x * .5 + .5) * window.innerWidth;
+          const y = (vector.y * -.5 + .5) * window.innerHeight;
+
+          popup.style.left = `${x}px`;
+          popup.style.top = `${y}px`;
+        }
+      }
+
+      // เริ่มทำงาน
+      await mindarThree.start();
+
+      renderer.setAnimationLoop(() => {
+        updatePopupPosition();
+        renderer.render(scene, camera);
+      });
+    }
+
+    init();
+  </script>
+</body>
+</html>
