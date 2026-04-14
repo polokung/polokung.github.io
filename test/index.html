@@ -13,36 +13,24 @@
 </head>
 <body style="margin: 0; overflow: hidden;">
 
-    <div id="loading-screen">
-        <div class="spinner"></div>
-        <p>กำลังเตรียมห้องเรียนเสมือนจริง...</p>
+<div id="loading-screen" class="overlay">
+    <div class="loader">กำลังโหลดโมเดล 3D...</div>
+</div>
+
+<a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;">
+    <a-marker id="dynamic-marker" type="pattern" url="">
+        <a-entity id="model-container"></a-entity>
+    </a-marker>
+    <a-entity camera></a-entity>
+</a-scene>
+
+<div id="label-container"></div> <div id="info-popup" class="popup hidden">
+    <div class="popup-content">
+        <h2 id="popup-title"></h2>
+        <p id="popup-desc"></p>
+        <button onclick="closePopup()">ปิด</button>
     </div>
-
-    <div id="scan-hint" class="hidden">
-        <p>กรุณาส่องกล้องไปที่ Marker</p>
-    </div>
-
-    <div id="label-container"></div>
-
-    <div id="popup-panel" class="popup-hidden">
-        <div class="popup-content">
-            <h2 id="info-title">หัวข้อ</h2>
-            <hr>
-            <p id="info-body">รายละเอียดเนื้อหา...</p>
-            <button id="close-btn">เข้าใจแล้ว</button>
-        </div>
-    </div>
-
-    <a-scene
-        embedded
-        arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
-        renderer="logarithmicDepthBuffer: true; antialias: true; alpha: true;"
-        cursor="rayOrigin: mouse"
-        raycaster="objects: .clickable"
-        vr-mode-ui="enabled: false"
-        device-orientation-permission-ui="enabled: false">
-        ...
-    </a-scene>
+</div>
 
 </body>
 </html>
