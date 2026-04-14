@@ -11,8 +11,13 @@
     .form-group { margin-bottom: 15px; }
     label { display: block; font-weight: bold; margin-bottom: 5px; }
     input[type="text"], textarea { width: 100%; padding: 8px; box-sizing: border-box; }
-    button { padding: 10px 15px; background: #007bff; color: white; border: none; cursor: pointer; width: 100%; margin-top: 10px; }
+    button { padding: 10px 15px; background: #007bff; color: white; border: none; cursor: pointer; width: 100%; margin-top: 10px; border-radius: 4px; }
     button:hover { background: #0056b3; }
+
+    /* สไตล์ปุ่ม Preview */
+    #preview-btn { background: #6c757d; margin-top: 5px; }
+    #preview-btn:hover { background: #5a6268; }
+
     #json-output { width: 100%; height: 150px; margin-top: 20px; font-family: monospace; }
   </style>
   <script type="importmap">
@@ -36,16 +41,17 @@
     </div>
     <div class="form-group">
       <label>Model URL (.glb)</label>
-      <input type="text" id="model-url" value="https://your-server.com/models/engine.glb">
+      <input type="text" id="model-url" value="https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models/2.0/Box/glTF/Box.gltf">
+      <button id="preview-btn">โหลดดูตัวอย่างโมเดลใหม่</button>
     </div>
 
     <hr>
     <h3>เพิ่ม Hotspot</h3>
-    <p style="font-size: 12px; color: #555;">*คลิกบนโมเดลเพื่อมาร์คจุดตำแหน่ง 3D</p>
+    <p style="font-size: 12px; color: #555;">*ดับเบิลคลิกบนโมเดลเพื่อมาร์คจุดตำแหน่ง 3D</p>
 
     <div class="form-group">
       <label>ตำแหน่งที่คลิก (X, Y, Z)</label>
-      <input type="text" id="current-pos" disabled placeholder="คลิกบนโมเดล...">
+      <input type="text" id="current-pos" disabled placeholder="ดับเบิลคลิกบนโมเดล...">
     </div>
     <div class="form-group">
       <label>ชื่อจุด (Title)</label>
@@ -75,9 +81,9 @@
       hotspots: []
     };
 
-    // ตัวแปรสำหรับ Hotspot ชั่วคราว
     let currentPosition = null;
     let tempMarker = null;
+    let loadedModel = null; // ตัวแปรเก็บโมเดลปัจจุบัน
 
     // --- ตั้งค่า Three.js พื้นฐาน ---
     const container = document.getElementById('canvas-container');
@@ -93,25 +99,57 @@
 
     const controls = new OrbitControls(camera, renderer.domElement);
 
-    // แสงสว่าง
     scene.add(new THREE.AmbientLight(0xffffff, 0.6));
     const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
     dirLight.position.set(5, 10, 5);
     scene.add(dirLight);
 
-    // โหลดโมเดล (ใช้โมเดลตัวอย่าง)
-    let loadedModel = null;
     const loader = new GLTFLoader();
-    loader.load('https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models/2.0/Box/glTF/Box.gltf', (gltf) => {
-      loadedModel = gltf.scene;
-      scene.add(loadedModel);
+
+    // --- ฟังก์ชันสำหรับโหลดโมเดล ---
+    async function loadModel(url) {
+      if (!url) return;
+
+      // ลบโมเดลเก่าและคืนหน่วยความจำก่อนโหลดใหม่
+      if (loadedModel) {
+        scene.remove(loadedModel);
+        loadedModel.traverse((child) => {
+          if (child.isMesh) {
+            child.geometry.dispose();
+            if (Array.isArray(child.material)) {
+              child.material.forEach(m => m.dispose());
+            } else {
+              child.material.dispose();
+            }
+          }
+        });
+      }
+
+      try {
+        const gltf = await loader.loadAsync(url);
+        loadedModel = gltf.scene;
+        scene.add(loadedModel);
+        console.log("โหลดโมเดลสำเร็จ");
+      } catch (error) {
+        console.error("Error loading model:", error);
+        alert("ไม่สามารถโหลดโมเดลได้ กรุณาตรวจสอบลิงก์ (อาจติดปัญหา CORS)");
+      }
+    }
+
+    // โหลดโมเดลตั้งต้นเมื่อเปิดหน้าเว็บ
+    loadModel(document.getElementById('model-url').value);
+
+    // ทำงานเมื่อกดปุ่ม Preview
+    document.getElementById('preview-btn').addEventListener('click', () => {
+      const newUrl = document.getElementById('model-url').value;
+      loadModel(newUrl);
     });
 
     // --- ระบบ Raycaster สำหรับการจิ้มโมเดล ---
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
-    container.addEventListener('dblclick', (event) => { // ใช้ Double click เพื่อแยกกับการหมุนจอ (OrbitControls)
+    container.addEventListener('dblclick', (event) => {
       if (!loadedModel) return;
 
       const rect = renderer.domElement.getBoundingClientRect();
@@ -125,10 +163,8 @@
         const point = intersects[0].point;
         currentPosition = { x: point.x, y: point.y, z: point.z };
 
-        // อัปเดต UI
         document.getElementById('current-pos').value = `x: ${point.x.toFixed(2)}, y: ${point.y.toFixed(2)}, z: ${point.z.toFixed(2)}`;
 
-        // วาดจุดสีแดงชั่วคราวบนจอ
         if (tempMarker) scene.remove(tempMarker);
         const markerGeo = new THREE.SphereGeometry(0.05, 16, 16);
         const markerMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
@@ -153,12 +189,10 @@
         description: desc
       });
 
-      // เปลี่ยนสีจุดชั่วคราวให้เป็นจุดถาวร (สีเหลือง)
       tempMarker.material.color.setHex(0xffff00);
       tempMarker = null;
       currentPosition = null;
 
-      // ล้างฟอร์ม
       document.getElementById('current-pos').value = "";
       document.getElementById('hs-title').value = "";
       document.getElementById('hs-desc').value = "";
@@ -182,7 +216,6 @@
     }
     animate();
 
-    // จัดการขนาดหน้าจอ
     window.addEventListener('resize', () => {
       camera.aspect = container.clientWidth / container.clientHeight;
       camera.updateProjectionMatrix();
