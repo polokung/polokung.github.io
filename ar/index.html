@@ -47,12 +47,29 @@
       // ในระบบจริงใช้ fetch('api/endpoint')
       return {
         "ar_project_id": "001",
-        "marker_url": "https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.2/examples/image-tracking/assets/card-example/card.mind", // ใช้ Marker ตัวอย่าง
-        "model_url": "https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models/2.0/Box/glTF/Box.gltf", // ใช้ Model ตัวอย่าง
+        "marker_url": "https://your-server.com/markers/target-a.mind",
+        "model_url": "https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models/2.0/Duck/glTF-Binary/Duck.glb",
         "hotspots": [
-          { "position": { "x": 0, "y": 0.5, "z": 0.5 }, "title": "จุดทดสอบที่ 1", "description": "นี่คือข้อมูลจำลองจุดแรก" }
+            {
+            "position": {
+                "x": 0.726647370598019,
+                "y": 1.1700652798639328,
+                "z": -0.2202517938021232
+            },
+            "title": "ปากเป็ด",
+            "description": "มีสีส้ม ยื่นออกมาจากปาก"
+            },
+            {
+            "position": {
+                "x": 0.6645038535614849,
+                "y": 1.3720064816131166,
+                "z": 0.13954136183860796
+            },
+            "title": "ตา",
+            "description": "กลมโต สีขาวดำ"
+            }
         ]
-      };
+        };
     }
 
     async function init() {
