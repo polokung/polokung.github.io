@@ -1,36 +1,331 @@
 <!DOCTYPE html>
-<html lang="th">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Web AR Scalable Education</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <title>Educational Web AR</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/three.js/build/ar.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
 
-    <script src="app.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+
+        /* UI Layers */
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+
+        /* Loading & Status Screens */
+        .screen-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; transition: opacity 0.5s; pointer-events: auto; }
+        .hidden { opacity: 0; pointer-events: none !important; }
+        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 15px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Floating Label (Information Layering 1) */
+        .hotspot-label { position: absolute; background: rgba(255, 255, 255, 0.9); color: #333; padding: 8px 15px; border-radius: 20px; font-weight: bold; font-size: 14px; cursor: pointer; pointer-events: auto; transform: translate(-50%, -50%); box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: none; transition: transform 0.2s; }
+        .hotspot-label:hover { transform: translate(-50%, -50%) scale(1.1); background: #3498db; color: white; }
+
+        /* Detail Modal (Information Layering 2) */
+        #detail-modal { position: absolute; bottom: -100%; left: 50%; transform: translateX(-50%); width: 90%; max-width: 400px; background: white; border-radius: 15px 15px 0 0; padding: 20px; box-shadow: 0 -5px 15px rgba(0,0,0,0.2); transition: bottom 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); pointer-events: auto; }
+        #detail-modal.active { bottom: 0; }
+        .modal-title { margin: 0 0 10px 0; color: #2c3e50; font-size: 1.2rem; }
+        .modal-desc { color: #7f8c8d; font-size: 0.95rem; line-height: 1.5; }
+        .close-btn { position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #bdc3c7; }
+    </style>
 </head>
-<body style="margin: 0; overflow: hidden;">
+<body>
 
-<div id="loading-screen" class="overlay">
-    <div class="loader">กำลังโหลดโมเดล 3D...</div>
-</div>
+    <div id="ui-layer">
+        <div id="loading-screen" class="screen-overlay">
+            <div class="spinner"></div>
+            <h2 id="loading-text">Loading Assets...</h2>
+        </div>
+        <div id="scan-screen" class="screen-overlay hidden" style="background: rgba(0,0,0,0.4);">
+            <div style="border: 2px dashed white; width: 200px; height: 200px; margin-bottom: 20px; border-radius: 10px;"></div>
+            <h2>Point camera at the Marker</h2>
+        </div>
 
-<a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;">
-    <a-marker id="dynamic-marker" type="pattern" url="">
-        <a-entity id="model-container"></a-entity>
-    </a-marker>
-    <a-entity camera></a-entity>
-</a-scene>
+        <div id="labels-container"></div>
 
-<div id="label-container"></div> <div id="info-popup" class="popup hidden">
-    <div class="popup-content">
-        <h2 id="popup-title"></h2>
-        <p id="popup-desc"></p>
-        <button onclick="closePopup()">ปิด</button>
+        <div id="detail-modal">
+            <button class="close-btn" onclick="UI.closeModal()">×</button>
+            <h3 class="modal-title" id="modal-title">Title</h3>
+            <p class="modal-desc" id="modal-desc">Description goes here...</p>
+        </div>
     </div>
-</div>
 
+<script>
+/**
+ * 1. Data Layer: Mock JSON Data (สามารถเปลี่ยนเป็น fetch API ได้)
+ */
+const lessonData = {
+    markerUrl: "https://raw.githack.com/AR-js-org/AR.js/master/data/data/patt.hiro", // หรือ custom marker
+    modelUrl: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF/Duck.gltf", // แทนที่ด้วยโมเดลจริง
+    hotspots: [
+        { id: "hs1", position: { x: 0, y: 1.5, z: 0.5 }, name: "Head", description: "The central processing unit of the organism." },
+        { id: "hs2", position: { x: 0, y: 0.5, z: -1 }, name: "Tail", description: "Used for balance and direction." }
+    ]
+};
+
+/**
+ * 2. UI Manager Layer
+ */
+const UI = {
+    elements: {
+        loading: document.getElementById('loading-screen'),
+        scan: document.getElementById('scan-screen'),
+        modal: document.getElementById('detail-modal'),
+        title: document.getElementById('modal-title'),
+        desc: document.getElementById('modal-desc'),
+        labelsContainer: document.getElementById('labels-container')
+    },
+    activeLabels: {},
+
+    setLoading(isLoading, text = "Loading...") {
+        document.getElementById('loading-text').innerText = text;
+        isLoading ? this.elements.loading.classList.remove('hidden') : this.elements.loading.classList.add('hidden');
+    },
+    setScanning(isScanning) {
+        isScanning ? this.elements.scan.classList.remove('hidden') : this.elements.scan.classList.add('hidden');
+    },
+    openModal(data) {
+        this.elements.title.innerText = data.name;
+        this.elements.desc.innerText = data.description;
+        this.elements.modal.classList.add('active');
+        // ซ่อน Label อื่นๆ ชั่วคราวเพื่อลด Cognitive Load
+        this.elements.labelsContainer.style.opacity = 0;
+    },
+    closeModal() {
+        this.elements.modal.classList.remove('active');
+        this.elements.labelsContainer.style.opacity = 1;
+    },
+    createLabel(id, name, onClickCallback) {
+        const div = document.createElement('div');
+        div.className = 'hotspot-label';
+        div.innerText = name;
+        div.onclick = onClickCallback;
+        this.elements.labelsContainer.appendChild(div);
+        this.activeLabels[id] = div;
+        return div;
+    },
+    updateLabelPosition(id, x, y, isVisible) {
+        const label = this.activeLabels[id];
+        if (label) {
+            if (isVisible) {
+                label.style.display = 'block';
+                label.style.left = `${x}px`;
+                label.style.top = `${y}px`;
+            } else {
+                label.style.display = 'none';
+            }
+        }
+    }
+};
+
+/**
+ * 3. Core AR Engine & Content Manager
+ */
+class ARApplication {
+    constructor() {
+        this.scene = null;
+        this.camera = null;
+        this.renderer = null;
+        this.arToolkitSource = null;
+        this.arToolkitContext = null;
+        this.markerRoot = null;
+        this.modelGroup = null; // Container สำหรับ The Reveal Animation
+
+        this.hotspots = []; // เก็บ Mesh ทรงกลม
+        this.raycaster = new THREE.Raycaster();
+        this.mouse = new THREE.Vector2();
+
+        this.isMarkerFound = false;
+
+        this.initThreeJS();
+        this.setupAR();
+    }
+
+    initThreeJS() {
+        this.scene = new THREE.Scene();
+        let ambientLight = new THREE.AmbientLight(0xcccccc, 1.0);
+        this.scene.add(ambientLight);
+
+        this.camera = new THREE.Camera();
+        this.scene.add(this.camera);
+
+        this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        this.renderer.setClearColor(new THREE.Color('lightgrey'), 0);
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(this.renderer.domElement);
+
+        // Raycast Event Listener (Touch & Click)
+        window.addEventListener('click', this.onInteraction.bind(this), false);
+        window.addEventListener('touchstart', this.onInteraction.bind(this), { passive: false });
+        window.addEventListener('resize', () => {
+            this.arToolkitSource.onResizeElement();
+            this.arToolkitSource.copyElementSizeTo(this.renderer.domElement);
+        });
+    }
+
+    setupAR() {
+        // 1. Setup Source (Camera)
+        this.arToolkitSource = new THREEx.ArToolkitSource({ sourceType: 'webcam' });
+        this.arToolkitSource.init(() => {
+            setTimeout(() => {
+                this.arToolkitSource.onResizeElement();
+                this.arToolkitSource.copyElementSizeTo(this.renderer.domElement);
+            }, 500);
+        });
+
+        // 2. Setup Context
+        this.arToolkitContext = new THREEx.ArToolkitContext({
+            cameraParametersUrl: 'https://raw.githack.com/AR-js-org/AR.js/master/data/data/camera_para.dat',
+            detectionMode: 'mono'
+        });
+        this.arToolkitContext.init(() => {
+            this.camera.projectionMatrix.copy(this.arToolkitContext.getProjectionMatrix());
+        });
+
+        // 3. Setup Marker Root
+        this.markerRoot = new THREE.Group();
+        this.scene.add(this.markerRoot);
+
+        // Group ย่อยสำหรับทำ Animation (The Reveal)
+        this.modelGroup = new THREE.Group();
+        this.modelGroup.scale.set(0, 0, 0); // ซ่อนไว้ก่อนเริ่มต้น
+        this.markerRoot.add(this.modelGroup);
+    }
+
+    loadContent(data) {
+        UI.setLoading(true, "Loading Model...");
+
+        // Load Marker Profile
+        let markerControls = new THREEx.ArMarkerControls(this.arToolkitContext, this.markerRoot, {
+            type: 'pattern',
+            patternUrl: data.markerUrl,
+        });
+
+        // Load 3D Model
+        const loader = new THREE.GLTFLoader();
+        loader.load(data.modelUrl, (gltf) => {
+            let model = gltf.scene;
+            // ปรับขนาดเบื้องต้นตามต้องการ
+            model.scale.set(0.2, 0.2, 0.2);
+            this.modelGroup.add(model);
+
+            // สร้าง Hotspots ตาม JSON
+            this.buildHotspots(data.hotspots);
+
+            UI.setLoading(false);
+            UI.setScanning(true);
+
+            // เริ่ม Animation Loop
+            this.animate();
+        });
+    }
+
+    buildHotspots(hotspotData) {
+        const geometry = new THREE.SphereGeometry(0.1, 32, 32);
+        // Visual Clue: สีเหลือง/ส้ม กระตุ้นให้กด
+        const material = new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.8 });
+
+        hotspotData.forEach(hsData => {
+            let hsMesh = new THREE.Mesh(geometry, material);
+            hsMesh.position.set(hsData.position.x, hsData.position.y, hsData.position.z);
+            hsMesh.userData = { id: hsData.id, data: hsData }; // เก็บข้อมูลไว้ใน userData ของ Three.js
+
+            this.modelGroup.add(hsMesh);
+            this.hotspots.push(hsMesh);
+
+            // สร้าง HTML Label สอดคล้องกัน
+            UI.createLabel(hsData.id, hsData.name, () => {
+                UI.openModal(hsData);
+            });
+        });
+    }
+
+    onInteraction(event) {
+        if(event.type === 'touchstart') event = event.touches[0];
+
+        // แปลงพิกัดหน้าจอสำหรับ Raycaster
+        this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+        this.raycaster.setFromCamera(this.mouse, this.camera);
+        const intersects = this.raycaster.intersectObjects(this.hotspots);
+
+        if (intersects.length > 0) {
+            const hitHotspot = intersects[0].object;
+            UI.openModal(hitHotspot.userData.data);
+        }
+    }
+
+    updateHotspotsAndLabels(time) {
+        const widthHalf = window.innerWidth / 2;
+        const heightHalf = window.innerHeight / 2;
+
+        this.hotspots.forEach(hs => {
+            // 1. Pulsing Effect (Visual Clue)
+            let scale = 1 + Math.sin(time * 0.005) * 0.2; // ขยายเข้าออก
+            hs.scale.set(scale, scale, scale);
+
+            // 2. World to Screen Coordinate (UI Overlay)
+            let pos = new THREE.Vector3();
+            hs.getWorldPosition(pos); // หาตำแหน่งสัมบูรณ์ในโลก 3D
+            pos.project(this.camera); // Project ผ่านกล้อง AR
+
+            // ถ้าจุดอยู่ด้านหน้ากล้อง
+            if (pos.z < 1) {
+                let screenX = (pos.x * widthHalf) + widthHalf;
+                let screenY = -(pos.y * heightHalf) + heightHalf;
+
+                // ขยับ Label ให้อยู่เหนือจุด Hotspot เล็กน้อย
+                UI.updateLabelPosition(hs.userData.id, screenX, screenY - 40, true);
+            } else {
+                UI.updateLabelPosition(hs.userData.id, 0, 0, false);
+            }
+        });
+    }
+
+    animate(time) {
+        requestAnimationFrame(this.animate.bind(this));
+        TWEEN.update(time);
+
+        if (this.arToolkitSource.ready !== false) {
+            this.arToolkitContext.update(this.arToolkitSource.domElement);
+        }
+
+        // State Machine สำหรับ Marker
+        if (this.markerRoot.visible !== this.isMarkerFound) {
+            this.isMarkerFound = this.markerRoot.visible;
+            if (this.isMarkerFound) {
+                // The Reveal: ขยายโมเดลจาก 0 ไป 1 อย่างนุ่มนวล
+                UI.setScanning(false);
+                new TWEEN.Tween(this.modelGroup.scale)
+                    .to({ x: 1, y: 1, z: 1 }, 1000)
+                    .easing(TWEEN.Easing.Elastic.Out)
+                    .start();
+            } else {
+                UI.setScanning(true);
+                UI.closeModal(); // ปิด Modal อัตโนมัติเมื่อหลุดโฟกัส
+                this.modelGroup.scale.set(0, 0, 0); // Reset scale
+                // ซ่อน Label ทั้งหมด
+                Object.keys(UI.activeLabels).forEach(key => UI.updateLabelPosition(key, 0,0, false));
+            }
+        }
+
+        if (this.isMarkerFound) {
+            this.updateHotspotsAndLabels(time);
+        }
+
+        this.renderer.render(this.scene, this.camera);
+    }
+}
+
+// 4. Initialization
+const app = new ARApplication();
+app.loadContent(lessonData);
+
+</script>
 </body>
 </html>
