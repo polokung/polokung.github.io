@@ -72,26 +72,49 @@
       scene.add(light);
 
       // โหลด Model แบบ Asynchronous
+// โหลด Model แบบ Asynchronous
       const loader = new GLTFLoader();
       const gltf = await loader.loadAsync(data.model_url);
       const model = gltf.scene;
-      model.scale.set(0.1, 0.1, 0.1); // ปรับขนาดตามความเหมาะสม
-      anchor.group.add(model);
 
-      // สร้าง Hotspots จาก JSON
-      const hotspotsGroup = new THREE.Group();
+      // --- 1. สร้าง Group หลักเพื่อมัดรวม Model และ Hotspots ---
+      const arContentGroup = new THREE.Group();
+
+      // --- 2. ปรับขนาดและตำแหน่งโมเดลให้ **เหมือนใน Admin เป๊ะๆ** ---
+      const box = new THREE.Box3().setFromObject(model);
+      const size = box.getSize(new THREE.Vector3());
+      const center = box.getCenter(new THREE.Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z);
+
+      if (maxDim > 0) {
+        const adminScale = 3 / maxDim; // ใช้เลข 3 ให้ตรงกับ targetSize ในหน้า Admin
+        model.scale.set(adminScale, adminScale, adminScale);
+        model.position.set(-center.x * adminScale, -center.y * adminScale, -center.z * adminScale);
+      }
+      arContentGroup.add(model); // เอาโมเดลใส่กล่องรวม
+
+      // --- 3. สร้าง Hotspots (ตอนนี้พิกัดจะตรงเป๊ะแล้ว) ---
       const interactableObjects = [];
-      const hotspotGeometry = new THREE.SphereGeometry(0.05, 16, 16);
-      const hotspotMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: 0.7 });
+      const hotspotGeometry = new THREE.SphereGeometry(0.08, 16, 16); // ปรับจุดให้ใหญ่ขึ้นนิดนึง
+      const hotspotMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: 0.8 });
 
-      data.hotspots.forEach((hsData, index) => {
+      data.hotspots.forEach((hsData) => {
         const sphere = new THREE.Mesh(hotspotGeometry, hotspotMaterial);
         sphere.position.set(hsData.position.x, hsData.position.y, hsData.position.z);
-        sphere.userData = { title: hsData.title, description: hsData.description }; // เก็บข้อมูลไว้ใน userData
-        hotspotsGroup.add(sphere);
+        sphere.userData = { title: hsData.title, description: hsData.description };
+        arContentGroup.add(sphere); // เอา Hotspot ใส่กล่องรวมเดียวกัน
         interactableObjects.push(sphere);
       });
-      anchor.group.add(hotspotsGroup);
+
+      // --- 4. ย่อขนาดกล่องรวมให้พอดีกับ AR Marker ---
+      // Marker ปกติจะมีขนาด 1 unit เราจึงย่อจาก 3 ให้เหลือประมาณ 0.3 - 0.5
+      const arScale = 0.4;
+      arContentGroup.scale.set(arScale, arScale, arScale);
+
+      // หมุนโมเดลให้ตั้งขึ้นเพื่อให้มองเห็นง่ายขึ้นเวลาส่องการ์ดแนวราบบนโต๊ะ (ปรับแก้ได้)
+      // arContentGroup.rotation.x = Math.PI / 2;
+
+      anchor.group.add(arContentGroup); // นำกล่องรวมทั้งหมดไปแปะบน Marker
 
       // ระบบ Raycaster
       const raycaster = new THREE.Raycaster();
