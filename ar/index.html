@@ -104,8 +104,15 @@
 
       // 3. สร้าง Hotspots (ตอนนี้พิกัดจะทาบทับลงบนโมเดลได้ตรงเป๊ะ)
       const interactableObjects = [];
-      const hotspotGeometry = new THREE.SphereGeometry(0.1, 16, 16);
-      const hotspotMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: 0.8, depthTest: false });
+      // ขยายขนาดลูกกลมจาก 0.1 เป็น 0.25 (เผื่อโดน arScale ย่อแล้วเล็กเกินไป)
+      const hotspotGeometry = new THREE.SphereGeometry(0.25, 16, 16);
+      const hotspotMaterial = new THREE.MeshBasicMaterial({
+        color: 0xffff00,
+        transparent: true,
+        opacity: 0.9,
+        depthTest: false,    // ทะลุวัตถุ
+        depthWrite: false    // ไม่ต้องเขียนทับความลึกของวัตถุอื่น
+      });
 
       if (data.hotspots && data.hotspots.length > 0) {
         data.hotspots.forEach((hsData) => {
