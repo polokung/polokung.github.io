@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <title>AR Admin Dashboard - Hotspot Placer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        body { display: flex; margin: 0; font-family: sans-serif; height: 100vh; overflow: hidden; }
+        #sidebar { width: 350px; background: #f4f4f4; padding: 20px; box-shadow: 2px 0 5px rgba(0,0,0,0.1); overflow-y: auto; }
+        #viewer { flex-grow: 1; position: relative; }
+        input, textarea, button { width: 100%; margin-bottom: 10px; padding: 8px; box-sizing: border-box; }
+        .hotspot-item { background: white; padding: 10px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #ccc; }
+    </style>
+</head>
+<body>
+
+    <div id="sidebar">
+        <h2>AR Content Manager</h2>
+        <label>Project ID:</label>
+        <input type="text" id="projectId" value="001">
+
+        <label>Marker URL (.patt):</label>
+        <input type="text" id="markerUrl" value="https://your-server.com/markers/target-a.patt">
+
+        <label>Model URL (.glb):</label>
+        <input type="text" id="modelUrl" value="https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF-Binary/Duck.glb">
+        <button onclick="loadPreviewModel()">Load Model Preview</button>
+
+        <hr>
+        <h3>Hotspots <small>(คลิกที่โมเดลเพื่อเพิ่มจุด)</small></h3>
+        <div id="hotspot-list"></div>
+
+        <button onclick="exportJSON()" style="background: #4CAF50; color: white; font-weight: bold; margin-top: 20px;">Save & Export JSON</button>
+    </div>
+
+    <div id="viewer"></div>
+
+    <script>
+        let scene, camera, renderer, controls, currentModel;
+        let hotspotsData = [];
+        let hotspotMeshes = [];
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        init3D();
+
+        function init3D() {
+            const container = document.getElementById('viewer');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xdddddd);
+
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+            camera.position.set(0, 2, 5);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(5, 10, 7);
+            scene.add(dirLight);
+
+            container.addEventListener('click', onModelClick, false);
+            animate();
+        }
+
+        function loadPreviewModel() {
+            const url = document.getElementById('modelUrl').value;
+            if (currentModel) {
+                scene.remove(currentModel);
+                hotspotMeshes.forEach(mesh => scene.remove(mesh));
+                hotspotMeshes = [];
+                hotspotsData = [];
+                updateHotspotUI();
+            }
+
+            const loader = new THREE.GLTFLoader();
+            loader.load(url, function(gltf) {
+                currentModel = gltf.scene;
+                scene.add(currentModel);
+            }, undefined, function(error) {
+                alert("Error loading model. Check console.");
+                console.error(error);
+            });
+        }
+
+        function onModelClick(event) {
+            if (!currentModel) return;
+
+            const rect = renderer.domElement.getBoundingClientRect();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObject(currentModel, true);
+
+            if (intersects.length > 0) {
+                const point = intersects[0].point;
+                addHotspot(point);
+            }
+        }
+
+        function addHotspot(position) {
+            // สร้าง Mesh จุดสีแดงบนจอ
+            const geometry = new THREE.SphereGeometry(0.05, 16, 16);
+            const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+            const sphere = new THREE.Mesh(geometry, material);
+            sphere.position.copy(position);
+            scene.add(sphere);
+            hotspotMeshes.push(sphere);
+
+            // เก็บ Data
+            const id = hotspotsData.length;
+            hotspotsData.push({
+                id: id,
+                position: { x: position.x.toFixed(3), y: position.y.toFixed(3), z: position.z.toFixed(3) },
+                title: `Hotspot ${id + 1}`,
+                description: ""
+            });
+
+            updateHotspotUI();
+        }
+
+        function updateHotspotUI() {
+            const list = document.getElementById('hotspot-list');
+            list.innerHTML = "";
+            hotspotsData.forEach((hs, index) => {
+                list.innerHTML += `
+                    <div class="hotspot-item">
+                        <strong>Position:</strong> ${hs.position.x}, ${hs.position.y}, ${hs.position.z}<br>
+                        <input type="text" placeholder="Title" value="${hs.title}" onchange="hotspotsData[${index}].title = this.value">
+                        <textarea placeholder="Description" onchange="hotspotsData[${index}].description = this.value">${hs.description}</textarea>
+                    </div>
+                `;
+            });
+        }
+
+        function exportJSON() {
+            const finalData = {
+                ar_project_id: document.getElementById('projectId').value,
+                marker_url: document.getElementById('markerUrl').value,
+                model_url: document.getElementById('modelUrl').value,
+                // กรองเอาเฉพาะ key ที่ต้องการส่งให้ Frontend
+                hotspots: hotspotsData.map(hs => ({
+                    position: { x: parseFloat(hs.position.x), y: parseFloat(hs.position.y), z: parseFloat(hs.position.z) },
+                    title: hs.title,
+                    description: hs.description
+                }))
+            };
+
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(finalData, null, 4));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", "ar_config.json");
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>

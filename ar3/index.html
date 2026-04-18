@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Dynamic Marker-based AR</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/three.js/build/ar.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: sans-serif; }
+        /* สไตล์สำหรับ Hotspot Popup */
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; }
+        .hotspot-label {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 10px 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            pointer-events: auto;
+            transform: translate(-50%, -100%);
+            display: none;
+            max-width: 250px;
+        }
+        .hotspot-title { font-weight: bold; margin-bottom: 5px; color: #333; }
+        .hotspot-desc { font-size: 14px; color: #555; margin-bottom: 8px; }
+        .close-btn {
+            background: #ff4444; color: white; border: none; padding: 5px 10px;
+            border-radius: 4px; cursor: pointer; width: 100%;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-layer">
+        <div id="info-popup" class="hotspot-label">
+            <div id="popup-title" class="hotspot-title">Title</div>
+            <div id="popup-desc" class="hotspot-desc">Description</div>
+            <button class="close-btn" onclick="closePopup()">ปิด</button>
+        </div>
+    </div>
+
+    <script>
+        let scene, camera, renderer, arToolkitSource, arToolkitContext;
+        let markerRoot, currentModel;
+        let hotspots = [];
+        let raycaster = new THREE.Raycaster();
+        let mouse = new THREE.Vector2();
+        let activeHotspot = null;
+
+        init();
+        animate();
+
+        async function init() {
+            // 1. สร้าง Scene
+            scene = new THREE.Scene();
+            camera = new THREE.Camera();
+            scene.add(camera);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            // 2. ตั้งค่า AR.js
+            arToolkitSource = new THREEx.ArToolkitSource({ sourceType: 'webcam' });
+            arToolkitSource.init(() => { onResize(); });
+            window.addEventListener('resize', onResize);
+
+            arToolkitContext = new THREEx.ArToolkitContext({
+                cameraParametersUrl: 'https://raw.githack.com/AR-js-org/AR.js/master/data/data/camera_para.dat',
+                detectionMode: 'mono'
+            });
+            arToolkitContext.init(() => { camera.projectionMatrix.copy(arToolkitContext.getProjectionMatrix()); });
+
+            // เพิ่มแสง
+            const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
+            scene.add(light);
+
+            // 3. ดึงข้อมูล JSON API (สมมติว่าเป็น URL)
+            // ในการใช้งานจริง เปลี่ยน URL เป็น Endpoint ของ Backend
+            const mockJSON = {
+                "marker_url": "https://raw.githack.com/AR-js-org/AR.js/master/data/data/patt.hiro",
+                "model_url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF-Binary/Duck.glb",
+                "hotspots": [
+                    { "position": {"x": 0, "y": 1, "z": 0}, "title": "ส่วนหัว (Head)", "description": "นี่คือส่วนหัวของโมเดลเป็ด" },
+                    { "position": {"x": 0.5, "y": 0.5, "z": 0}, "title": "ปีก (Wing)", "description": "ส่วนปีกสำหรับกระพือ" }
+                ]
+            };
+
+            await loadARContent(mockJSON);
+
+            // 4. สร้าง Event Listener สำหรับ Raycast (Tap/Click)
+            window.addEventListener('click', onTouch, false);
+            window.addEventListener('touchstart', onTouch, {passive: false});
+        }
+
+        function onResize() {
+            arToolkitSource.onResizeElement();
+            arToolkitSource.copyElementSizeTo(renderer.domElement);
+            if (arToolkitContext.arController !== null) {
+                arToolkitSource.copyElementSizeTo(arToolkitContext.arController.canvas);
+            }
+        }
+
+        async function loadARContent(data) {
+            // ล้างข้อมูลเก่า (Memory Management)
+            if (markerRoot) {
+                scene.remove(markerRoot);
+                // Disposal logic...
+            }
+            hotspots = [];
+
+            // สร้าง Marker Root
+            markerRoot = new THREE.Group();
+            scene.add(markerRoot);
+
+            new THREEx.ArMarkerControls(arToolkitContext, markerRoot, {
+                type: 'pattern', patternUrl: data.marker_url
+            });
+
+            // โหลด 3D Model
+            const loader = new THREE.GLTFLoader();
+            loader.load(data.model_url, function(gltf) {
+                currentModel = gltf.scene;
+                // ปรับขนาดเบื้องต้น
+                currentModel.scale.set(0.5, 0.5, 0.5);
+                markerRoot.add(currentModel);
+
+                // สร้าง Hotspots จาก JSON
+                const geometry = new THREE.SphereGeometry(0.1, 16, 16);
+                const material = new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.6 });
+
+                data.hotspots.forEach((hsData) => {
+                    const sphere = new THREE.Mesh(geometry, material);
+                    sphere.position.set(hsData.position.x, hsData.position.y, hsData.position.z);
+                    sphere.userData = { title: hsData.title, description: hsData.description };
+                    currentModel.add(sphere);
+                    hotspots.push(sphere);
+                });
+            });
+        }
+
+        function onTouch(event) {
+            // คำนวณตำแหน่ง Mouse/Touch
+            let clientX = event.clientX || (event.touches && event.touches[0].clientX);
+            let clientY = event.clientY || (event.touches && event.touches[0].clientY);
+
+            if (clientX === undefined) return;
+
+            mouse.x = (clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(hotspots);
+
+            if (intersects.length > 0) {
+                activeHotspot = intersects[0].object;
+                showPopup(activeHotspot.userData.title, activeHotspot.userData.description);
+            }
+        }
+
+        function showPopup(title, desc) {
+            document.getElementById('popup-title').innerText = title;
+            document.getElementById('popup-desc').innerText = desc;
+            document.getElementById('info-popup').style.display = 'block';
+        }
+
+        function closePopup() {
+            document.getElementById('info-popup').style.display = 'none';
+            activeHotspot = null;
+        }
+
+        function updatePopupPosition() {
+            // จัดการ World-to-Screen coordinate ให้ Popup ตามติด Hotspot
+            if (activeHotspot && document.getElementById('info-popup').style.display === 'block') {
+                const vector = new THREE.Vector3();
+                activeHotspot.getWorldPosition(vector);
+                vector.project(camera);
+
+                const x = (vector.x * .5 + .5) * window.innerWidth;
+                const y = (vector.y * -.5 + .5) * window.innerHeight;
+
+                const popup = document.getElementById('info-popup');
+                popup.style.left = `${x}px`;
+                popup.style.top = `${y}px`;
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if (arToolkitSource.ready !== false) {
+                arToolkitContext.update(arToolkitSource.domElement);
+            }
+            updatePopupPosition();
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>
