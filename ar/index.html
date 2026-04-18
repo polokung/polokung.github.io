@@ -47,11 +47,18 @@
     async function fetchARData() {
       return {
         "ar_project_id": "001",
-        "marker_url": "https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.2/examples/image-tracking/assets/card-example/card.mind", // <- เปลี่ยนเป็นไฟล์ .mind ของคุณ
-        "model_url": "https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models/2.0/Duck/glTF-Binary/Duck.glb", // <- ลิงก์เป็ด
+        "marker_url": "https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.2/examples/image-tracking/assets/card-example/card.mind",
+        "model_url": "https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models/2.0/Duck/glTF-Binary/Duck.glb",
         "hotspots": [
-          { "position": { "x": 0.5, "y": 1.0, "z": 0.0 }, "title": "ทดสอบ Hotspot", "description": "ลองจิ้มจุดนี้ดู" }
-          // นำ JSON ที่ Export จาก Admin มาวางทับตรงนี้ได้เลย
+          {
+            "position": {
+              "x": 0.7135485346222892,
+              "y": 1.1744234181149698,
+              "z": 0.13928315911831743
+            },
+            "title": "แก้ม",
+            "description": "แก้มเป็ด ใกล้บริเวณปากเป็ด"
+          }
         ]
       };
     }
