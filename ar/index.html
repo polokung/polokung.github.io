@@ -11,12 +11,13 @@
     #popup-overlay {
       position: absolute; display: none; background: rgba(0, 0, 0, 0.8);
       color: white; padding: 15px; border-radius: 8px; width: 250px;
-      transform: translate(-50%, -100%); /* ให้อยู่เหนือจุดที่คลิก */
+      transform: translate(-50%, -100%);
       pointer-events: auto; z-index: 10;
+      box-shadow: 0px 4px 10px rgba(0,0,0,0.5);
     }
-    #popup-overlay h3 { margin: 0 0 10px 0; font-size: 16px; }
-    #popup-overlay p { margin: 0 0 10px 0; font-size: 14px; }
-    #close-btn { background: #ff4d4d; border: none; color: white; padding: 5px 10px; border-radius: 4px; cursor: pointer; width: 100%; }
+    #popup-overlay h3 { margin: 0 0 10px 0; font-size: 16px; color: #ffcc00; }
+    #popup-overlay p { margin: 0 0 10px 0; font-size: 14px; line-height: 1.4; }
+    #close-btn { background: #ff4d4d; border: none; color: white; padding: 8px 10px; border-radius: 4px; cursor: pointer; width: 100%; font-weight: bold; }
   </style>
   <script type="importmap">
     {
@@ -42,15 +43,15 @@
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
     import { MindARThree } from 'mindar-image-three';
 
-    // Mock API Fetch (จำลองการดึง JSON)
+    // ดึงข้อมูล (อย่าลืมเปลี่ยน URL ข้อมูลให้ตรงกับที่คุณ Export ออกมาจาก Admin)
     async function fetchARData() {
-      // ในระบบจริงใช้ fetch('api/endpoint')
       return {
         "ar_project_id": "001",
-        "marker_url": "https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.2/examples/image-tracking/assets/card-example/card.mind", // ใช้ Marker ตัวอย่าง
-        "model_url": "https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models/2.0/Duck/glTF-Binary/Duck.glb", // ใช้ Model ตัวอย่าง
+        "marker_url": "https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.2/examples/image-tracking/assets/card-example/card.mind", // <- เปลี่ยนเป็นไฟล์ .mind ของคุณ
+        "model_url": "https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models/2.0/Duck/glTF-Binary/Duck.glb", // <- ลิงก์เป็ด
         "hotspots": [
-          { "position": { "x": 0, "y": 0.5, "z": 0.5 }, "title": "จุดทดสอบที่ 1", "description": "นี่คือข้อมูลจำลองจุดแรก" }
+          { "position": { "x": 0.5, "y": 1.0, "z": 0.0 }, "title": "ทดสอบ Hotspot", "description": "ลองจิ้มจุดนี้ดู" }
+          // นำ JSON ที่ Export จาก Admin มาวางทับตรงนี้ได้เลย
         ]
       };
     }
@@ -58,50 +59,74 @@
     async function init() {
       const data = await fetchARData();
 
-      // สร้าง MindAR Three.js Instance
       const mindarThree = new MindARThree({
         container: document.querySelector("#ar-container"),
         imageTargetSrc: data.marker_url
       });
 
       const { renderer, scene, camera } = mindarThree;
-      const anchor = mindarThree.addAnchor(0); // ผูกกับ Marker ตัวแรก
+      const anchor = mindarThree.addAnchor(0);
 
-      // เพิ่มแสง
-      const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
-      scene.add(light);
+      // เพิ่มแสงสว่างให้เห็นโมเดลชัดเจน
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+      scene.add(ambientLight);
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+      directionalLight.position.set(0, 5, 5);
+      scene.add(directionalLight);
 
-      // โหลด Model แบบ Asynchronous
+      // โหลด Model
       const loader = new GLTFLoader();
       const gltf = await loader.loadAsync(data.model_url);
       const model = gltf.scene;
-      model.scale.set(0.1, 0.1, 0.1); // ปรับขนาดตามความเหมาะสม
-      anchor.group.add(model);
 
-      // สร้าง Hotspots จาก JSON
-      const hotspotsGroup = new THREE.Group();
+      // 1. สร้าง Group หลักเพื่อมัดรวมโมเดลและ Hotspots ให้อยู่ด้วยกัน
+      const arContentGroup = new THREE.Group();
+
+      // 2. ปรับขนาดและจัดกึ่งกลางให้เป๊ะเหมือนในหน้า Admin (สำคัญมาก)
+      const box = new THREE.Box3().setFromObject(model);
+      const size = box.getSize(new THREE.Vector3());
+      const center = box.getCenter(new THREE.Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z);
+
+      if (maxDim > 0) {
+        const adminScale = 3 / maxDim; // สัดส่วนขนาด 3 เท่ากับหน้า Admin
+        model.scale.set(adminScale, adminScale, adminScale);
+        model.position.set(-center.x * adminScale, -center.y * adminScale, -center.z * adminScale);
+      }
+      arContentGroup.add(model);
+
+      // 3. สร้าง Hotspots (ตอนนี้พิกัดจะทาบทับลงบนโมเดลได้ตรงเป๊ะ)
       const interactableObjects = [];
-      const hotspotGeometry = new THREE.SphereGeometry(0.05, 16, 16);
-      const hotspotMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: 0.7 });
+      const hotspotGeometry = new THREE.SphereGeometry(0.1, 16, 16);
+      const hotspotMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: 0.8 });
 
-      data.hotspots.forEach((hsData, index) => {
-        const sphere = new THREE.Mesh(hotspotGeometry, hotspotMaterial);
-        sphere.position.set(hsData.position.x, hsData.position.y, hsData.position.z);
-        sphere.userData = { title: hsData.title, description: hsData.description }; // เก็บข้อมูลไว้ใน userData
-        hotspotsGroup.add(sphere);
-        interactableObjects.push(sphere);
-      });
-      anchor.group.add(hotspotsGroup);
+      if (data.hotspots && data.hotspots.length > 0) {
+        data.hotspots.forEach((hsData) => {
+          const sphere = new THREE.Mesh(hotspotGeometry, hotspotMaterial);
+          sphere.position.set(hsData.position.x, hsData.position.y, hsData.position.z);
+          sphere.userData = { title: hsData.title, description: hsData.description };
+          arContentGroup.add(sphere); // นำจุดสีเหลืองใส่เข้าไปในกล่องเดียวกับเป็ด
+          interactableObjects.push(sphere);
+        });
+      }
 
-      // ระบบ Raycaster
+      // 4. ย่อขนาด "ก้อนรวม" ให้พอดีกับ Marker บนหน้าจอ AR
+      // ปรับตัวเลข 0.4 ให้ใหญ่/เล็ก ตามที่คุณต้องการได้เลยครับ
+      const arScale = 0.4;
+      arContentGroup.scale.set(arScale, arScale, arScale);
+
+      // หมุนโมเดลให้ตั้งขึ้นเพื่อให้มองเห็นง่ายขึ้นเวลาส่องการ์ดแนวตั้งบนจอ
+      // arContentGroup.rotation.x = Math.PI / 2;
+
+      anchor.group.add(arContentGroup);
+
+      // ระบบ Raycaster (จิ้ม Hotspot)
       const raycaster = new THREE.Raycaster();
       const mouse = new THREE.Vector2();
       const popup = document.getElementById('popup-overlay');
       let activeHotspot = null;
 
-      // จัดการการคลิก (Tap)
       window.addEventListener('pointerdown', (event) => {
-        // แปลงพิกัดหน้าจอเป็นพิกัด Normalized Device Coordinates (NDC)
         mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
         mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
@@ -118,13 +143,11 @@
         }
       });
 
-      // ปิด Popup
       document.getElementById('close-btn').addEventListener('click', () => {
         popup.style.display = 'none';
         activeHotspot = null;
       });
 
-      // อัปเดตตำแหน่ง Popup ให้ตามโมเดล (World-to-Screen)
       function updatePopupPosition() {
         if (activeHotspot && popup.style.display === 'block') {
           const vector = new THREE.Vector3();
@@ -139,7 +162,6 @@
         }
       }
 
-      // เริ่มทำงาน
       await mindarThree.start();
 
       renderer.setAnimationLoop(() => {
