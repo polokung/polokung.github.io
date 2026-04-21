@@ -17,6 +17,13 @@
             border: 1px solid rgba(255, 255, 255, 0.2);
             border-radius: 16px;
         }
+
+        /* เอฟเฟกต์วงกลมเป้าหมาย */
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.05); opacity: 1; }
+            100% { transform: scale(0.95); opacity: 0.8; }
+        }
     </style>
 
     <script type="importmap">
@@ -30,35 +37,36 @@
 </head>
 <body class="bg-gray-900 text-white">
 
-    <!-- หน้าจอตรวจสอบความเข้ากันได้ -->
+    <!-- หน้าจอตรวจสอบความเข้ากันได้และเลือกโมเดล -->
     <div id="welcome-screen" class="fixed inset-0 flex flex-col items-center justify-center bg-gray-900 z-50 p-6 text-center">
-        <h1 class="text-3xl font-bold mb-4">Web AR Model Explorer</h1>
+        <h1 class="text-3xl font-bold mb-2">Web AR Explorer</h1>
+        <p class="text-blue-400 mb-6">เลือกโมเดลและเริ่มวางในโลกจริง</p>
+
         <p id="status-message" class="mb-8 text-gray-300">กำลังตรวจสอบระบบ WebXR...</p>
 
         <div id="model-selection" class="hidden w-full max-w-md">
-            <p class="mb-4">เลือกโมเดลที่ต้องการวาง:</p>
             <div class="grid grid-cols-2 gap-4 mb-8">
-                <button onclick="selectModel('chair')" class="model-btn p-4 glass-morphism hover:bg-blue-600 transition border-2 border-transparent" id="btn-chair">
-                    🪑 เก้าอี้
+                <button onclick="selectModel('chair')" class="model-btn p-4 glass-morphism hover:bg-white/20 transition border-2 border-transparent" id="btn-chair">
+                    <span class="text-2xl block mb-1">🪑</span> เก้าอี้
                 </button>
-                <button onclick="selectModel('robot')" class="model-btn p-4 glass-morphism hover:bg-blue-600 transition border-2 border-transparent" id="btn-robot">
-                    🤖 หุ่นยนต์
+                <button onclick="selectModel('robot')" class="model-btn p-4 glass-morphism hover:bg-white/20 transition border-2 border-transparent" id="btn-robot">
+                    <span class="text-2xl block mb-1">🤖</span> หุ่นยนต์
                 </button>
-                <button onclick="selectModel('plant')" class="model-btn p-4 glass-morphism hover:bg-blue-600 transition border-2 border-transparent" id="btn-plant">
-                    🪴 ต้นไม้
+                <button onclick="selectModel('plant')" class="model-btn p-4 glass-morphism hover:bg-white/20 transition border-2 border-transparent" id="btn-plant">
+                    <span class="text-2xl block mb-1">🪴</span> ต้นไม้
                 </button>
-                <button onclick="selectModel('box')" class="model-btn p-4 glass-morphism hover:bg-blue-600 transition border-2 border-transparent" id="btn-box">
-                    📦 กล่อง
+                <button onclick="selectModel('box')" class="model-btn p-4 glass-morphism hover:bg-white/20 transition border-2 border-transparent" id="btn-box">
+                    <span class="text-2xl block mb-1">📦</span> กล่อง
                 </button>
             </div>
-            <button id="start-ar-btn" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-all transform hover:scale-105">
-                เข้าสู่โหมด AR
+            <button id="start-ar-btn" class="w-full bg-white text-gray-900 font-bold py-4 px-8 rounded-2xl shadow-xl transition-all transform hover:scale-105">
+                เริ่มใช้งาน AR
             </button>
         </div>
 
-        <div id="error-box" class="hidden p-4 bg-red-900/50 border border-red-500 rounded-lg max-w-md">
-            <p id="error-text" class="text-red-200"></p>
-            <p class="mt-2 text-sm text-gray-400">โปรดเปิดผ่าน Chrome บน Android หรือเบราว์เซอร์ที่รองรับ WebXR (HTTPS)</p>
+        <div id="error-box" class="hidden p-6 bg-red-900/40 border border-red-500 rounded-2xl max-w-md">
+            <p id="error-text" class="text-red-200 font-medium"></p>
+            <p class="mt-2 text-sm text-gray-400">ต้องใช้งานผ่าน Chrome บน Android หรือ iOS (WebXR Viewer) ภายใต้ HTTPS</p>
         </div>
     </div>
 
@@ -66,17 +74,18 @@
     <div id="overlay">
         <div id="ar-ui" class="hidden h-full flex flex-col justify-between p-6">
             <div class="flex justify-between items-start pointer-events-auto">
-                <div class="glass-morphism p-3 text-sm">
-                    <p id="ar-instruction">กรุณาส่องไปที่พื้นว่าง...</p>
+                <div class="glass-morphism p-4 text-sm max-w-[200px]">
+                    <p id="ar-instruction" class="font-medium text-white">เลื่อนกล้องเพื่อหาพื้นผิว...</p>
                 </div>
-                <button id="exit-btn" class="bg-red-500/80 p-2 px-4 rounded-full text-white">
-                    ✕ ปิด
+                <button id="exit-btn" class="bg-black/50 backdrop-blur-md p-3 px-5 rounded-full text-white border border-white/20">
+                    ✕ ออก
                 </button>
             </div>
 
-            <div class="flex justify-center mb-12 pointer-events-auto">
-                <button id="place-btn" class="hidden bg-white text-blue-600 font-bold py-4 px-10 rounded-full shadow-2xl text-xl transform active:scale-95 transition-all">
-                    วางโมเดลตรงนี้
+            <div class="flex flex-col items-center mb-10 pointer-events-auto">
+                <p id="tap-hint" class="hidden mb-4 text-white/90 text-sm bg-black/40 px-4 py-2 rounded-full backdrop-blur-sm">แตะที่หน้าจอเพื่อวางวัตถุ</p>
+                <button id="place-btn" class="hidden bg-white text-black font-extrabold py-5 px-12 rounded-full shadow-2xl text-xl transform active:scale-90 transition-all">
+                    วางที่นี่
                 </button>
             </div>
         </div>
@@ -86,7 +95,6 @@
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-        // ตัวแปรหลัก
         let scene, camera, renderer, reticle;
         let hitTestSource = null;
         let hitTestSourceRequested = false;
@@ -112,13 +120,13 @@
                         modelSelection.classList.remove('hidden');
                         initThreeJS();
                     } else {
-                        showError("อุปกรณ์ของคุณไม่รองรับโหมด AR");
+                        showError("อุปกรณ์ไม่รองรับโหมด AR");
                     }
                 } catch (e) {
-                    showError("เกิดข้อผิดพลาดในการตรวจสอบ WebXR: " + e.message);
+                    showError("ข้อผิดพลาด: " + e.message);
                 }
             } else {
-                showError("เบราว์เซอร์นี้ไม่รองรับ WebXR โปรดใช้ Chrome บน Android");
+                showError("เบราว์เซอร์ไม่รองรับ WebXR");
             }
         }
 
@@ -135,11 +143,9 @@
             scene = new THREE.Scene();
             camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
 
-            const light = new THREE.AmbientLight(0xffffff, 1);
-            scene.add(light);
-
-            const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
-            dirLight.position.set(2, 4, 2);
+            scene.add(new THREE.AmbientLight(0xffffff, 1.5));
+            const dirLight = new THREE.DirectionalLight(0xffffff, 2);
+            dirLight.position.set(2, 5, 2);
             scene.add(dirLight);
 
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -148,22 +154,34 @@
             renderer.xr.enabled = true;
             document.body.appendChild(renderer.domElement);
 
-            reticle = new THREE.Mesh(
-                new THREE.RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2),
-                new THREE.MeshBasicMaterial({ color: 0x00ff00 })
-            );
+            // --- สร้างวงกลมสีขาวสำหรับระบุตำแหน่ง (Reticle) ---
+            const ringGeo = new THREE.RingGeometry(0.12, 0.15, 32).rotateX(-Math.PI / 2);
+            const dotGeo = new THREE.CircleGeometry(0.02, 32).rotateX(-Math.PI / 2); // จุดกึ่งกลาง
+
+            const mat = new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                opacity: 0.8,
+                transparent: true,
+                side: THREE.DoubleSide
+            });
+
+            reticle = new THREE.Group();
+            const ring = new THREE.Mesh(ringGeo, mat);
+            const dot = new THREE.Mesh(dotGeo, mat);
+
+            reticle.add(ring);
+            reticle.add(dot);
             reticle.matrixAutoUpdate = false;
             reticle.visible = false;
             scene.add(reticle);
 
-            // ย้ายการลงทะเบียน Resize เข้ามาที่นี่เพื่อให้แน่ใจว่า camera ถูกสร้างแล้ว
             window.addEventListener('resize', onWindowResize);
 
             window.selectModel = (key) => {
                 selectedModelKey = key;
-                document.querySelectorAll('.model-btn').forEach(btn => btn.classList.remove('border-blue-500', 'bg-blue-900/40'));
+                document.querySelectorAll('.model-btn').forEach(btn => btn.classList.remove('border-white', 'bg-white/20'));
                 const targetBtn = document.getElementById(`btn-${key}`);
-                if (targetBtn) targetBtn.classList.add('border-blue-500', 'bg-blue-900/40');
+                if (targetBtn) targetBtn.classList.add('border-white', 'bg-white/20');
             };
 
             window.selectModel('chair');
@@ -191,6 +209,10 @@
                 document.getElementById('welcome-screen').classList.add('hidden');
                 document.getElementById('ar-ui').classList.remove('hidden');
 
+                session.addEventListener('select', () => {
+                    if (reticle.visible) placeObject();
+                });
+
                 session.addEventListener('end', () => {
                     currentSession = null;
                     document.getElementById('welcome-screen').classList.remove('hidden');
@@ -199,7 +221,6 @@
 
                 renderer.setAnimationLoop(render);
             } catch (e) {
-                console.error("AR Start Failed:", e);
                 alert("ไม่สามารถเริ่ม AR ได้: " + e.message);
             }
         }
@@ -224,18 +245,24 @@
 
                 if (hitTestSource) {
                     const hitTestResults = frame.getHitTestResults(hitTestSource);
+                    const placeBtn = document.getElementById('place-btn');
+                    const tapHint = document.getElementById('tap-hint');
+                    const instruction = document.getElementById('ar-instruction');
+
                     if (hitTestResults.length > 0) {
                         const hit = hitTestResults[0];
                         const pose = hit.getPose(referenceSpace);
                         reticle.visible = true;
                         reticle.matrix.fromArray(pose.transform.matrix);
 
-                        document.getElementById('place-btn').classList.remove('hidden');
-                        document.getElementById('ar-instruction').innerText = "พร้อมวางโมเดล";
+                        placeBtn.classList.remove('hidden');
+                        tapHint.classList.remove('hidden');
+                        instruction.innerText = "พร้อมสำหรับวางวัตถุ";
                     } else {
                         reticle.visible = false;
-                        document.getElementById('place-btn').classList.add('hidden');
-                        document.getElementById('ar-instruction').innerText = "กำลังหาพื้นผิว...";
+                        placeBtn.classList.add('hidden');
+                        tapHint.classList.add('hidden');
+                        instruction.innerText = "กำลังค้นหาพื้นราบ...";
                     }
                 }
                 renderer.render(scene, camera);
@@ -248,6 +275,8 @@
                 const url = modelUrls[selectedModelKey];
 
                 const placeBtn = document.getElementById('place-btn');
+                const originalText = placeBtn.innerText;
+
                 placeBtn.disabled = true;
                 placeBtn.innerText = "กำลังโหลด...";
 
@@ -263,16 +292,14 @@
                     scene.add(model);
 
                     placeBtn.disabled = false;
-                    placeBtn.innerText = "วางโมเดลตรงนี้";
+                    placeBtn.innerText = originalText;
                 }, undefined, (e) => {
-                    console.error("Load error:", e);
                     placeBtn.disabled = false;
-                    placeBtn.innerText = "ลองอีกครั้ง";
+                    placeBtn.innerText = "ลองใหม่";
                 });
             }
         }
 
-        // เริ่มต้นเมื่อโหลดหน้าเว็บ
         window.addEventListener('load', checkCompatibility);
     </script>
 </body>
