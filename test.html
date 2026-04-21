@@ -65,7 +65,7 @@
 
         <div id="error-box" class="hidden p-6 bg-red-900/40 border border-red-500 rounded-2xl max-w-md">
             <p id="error-text" class="text-red-200 font-medium"></p>
-            <p class="mt-2 text-sm text-gray-400">โปรดเปิดด้วย Chrome บน Android (ผ่าน HTTPS เท่านั้น)</p>
+            <p class="mt-2 text-sm text-gray-400">โปรดเปิดด้วย Chrome บน Android หรือ WebXR Viewer บน iOS</p>
         </div>
     </div>
 
@@ -132,7 +132,7 @@
                     showError("เกิดข้อผิดพลาดในการตรวจสอบ WebXR: " + e.message);
                 }
             } else {
-                showError("เบราว์เซอร์นี้ไม่รองรับ WebXR (แนะนำ Chrome)");
+                showError("เบราว์เซอร์นี้ไม่รองรับ WebXR");
             }
         }
 
@@ -156,7 +156,6 @@
             scene = new THREE.Scene();
             camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
 
-            // ปรับแสงให้สว่างและนวลขึ้น
             const ambient = new THREE.AmbientLight(0xffffff, 2.0);
             scene.add(ambient);
 
@@ -168,11 +167,13 @@
             renderer.setPixelRatio(window.devicePixelRatio);
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.xr.enabled = true;
+
+            // แก้ไข: ตั้งค่าประเภท Reference Space เป็น 'local' เพื่อป้องกันข้อผิดพลาด local-floor
+            renderer.xr.setReferenceSpaceType('local');
+
             document.body.appendChild(renderer.domElement);
 
-            // สร้างเป้าหมายสีขาว (Reticle) ที่ประกอบด้วยวงแหวนและจุดกึ่งกลาง
             reticle = new THREE.Group();
-
             const ringGeo = new THREE.RingGeometry(0.08, 0.1, 64).rotateX(-Math.PI / 2);
             const dotGeo = new THREE.CircleGeometry(0.015, 32).rotateX(-Math.PI / 2);
 
@@ -219,7 +220,13 @@
 
         async function startAR() {
             console.log("Starting AR Session...");
-            const sessionInit = { requiredFeatures: ['hit-test'] };
+            // แก้ไข: เพิ่ม optionalFeatures เพื่อให้ครอบคลุมการทำงาน
+            const sessionInit = {
+                requiredFeatures: ['hit-test'],
+                optionalFeatures: ['dom-overlay'],
+                domOverlay: { root: document.body }
+            };
+
             try {
                 const session = await navigator.xr.requestSession('immersive-ar', sessionInit);
                 currentSession = session;
@@ -228,7 +235,6 @@
                 document.getElementById('welcome-screen').classList.add('hidden');
                 document.getElementById('ar-ui').classList.remove('hidden');
 
-                // แตะหน้าจอเพื่อวาง (ใช้ตำแหน่งจาก Reticle ล่าสุด)
                 session.addEventListener('select', () => {
                     if (reticle.visible) {
                         placeObject(reticle.matrix.clone());
@@ -257,6 +263,7 @@
 
         function render(timestamp, frame) {
             if (frame && renderer && scene && camera) {
+                // แก้ไข: ใช้ renderer.xr.getReferenceSpace() แทนการเรียกเองแบบดิบ
                 const referenceSpace = renderer.xr.getReferenceSpace();
                 const session = renderer.xr.getSession();
 
@@ -269,7 +276,7 @@
                     hitTestSourceRequested = true;
                 }
 
-                if (hitTestSource) {
+                if (hitTestSource && referenceSpace) {
                     const hitTestResults = frame.getHitTestResults(hitTestSource);
                     const placeBtn = document.getElementById('place-btn');
                     const tapHint = document.getElementById('tap-hint');
@@ -278,12 +285,14 @@
                     if (hitTestResults.length > 0) {
                         const hit = hitTestResults[0];
                         const pose = hit.getPose(referenceSpace);
-                        reticle.visible = true;
-                        reticle.matrix.fromArray(pose.transform.matrix);
+                        if (pose) {
+                            reticle.visible = true;
+                            reticle.matrix.fromArray(pose.transform.matrix);
 
-                        placeBtn.classList.remove('hidden');
-                        tapHint.classList.remove('hidden');
-                        instruction.innerText = "✅ พร้อมวางวัตถุ";
+                            placeBtn.classList.remove('hidden');
+                            tapHint.classList.remove('hidden');
+                            instruction.innerText = "✅ พร้อมวางวัตถุ";
+                        }
                     } else {
                         reticle.visible = false;
                         placeBtn.classList.add('hidden');
@@ -306,11 +315,8 @@
 
             loader.load(url, (gltf) => {
                 const model = gltf.scene;
-
-                // ใช้พิกัดที่บันทึกไว้ ณ วินาทีที่กด (Captured Matrix)
                 capturedMatrix.decompose(model.position, model.quaternion, model.scale);
 
-                // ปรับขนาดมาตรฐานให้มองเห็นได้ชัดในโลกจริง
                 if (selectedModelKey === 'chair') model.scale.set(0.5, 0.5, 0.5);
                 if (selectedModelKey === 'plant') model.scale.set(3, 3, 3);
                 if (selectedModelKey === 'robot') model.scale.set(0.25, 0.25, 0.25);
