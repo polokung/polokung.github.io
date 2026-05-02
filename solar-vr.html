@@ -1,0 +1,2008 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ระบบสุริยะจักรวาล — Web VR Educational App</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Chakra+Petch:wght@300;400;500;600;700&display=swap');
+
+  :root {
+    --space-dark: #020510;
+    --space-blue: #0a0f2e;
+    --space-mid: #0d1a4a;
+    --accent-gold: #f5c842;
+    --accent-blue: #4fc3f7;
+    --accent-cyan: #00e5ff;
+    --accent-orange: #ff7043;
+    --planet-mercury: #b5b5b5;
+    --planet-venus: #e8cda0;
+    --planet-earth: #4fa3e0;
+    --planet-mars: #c1440e;
+    --planet-jupiter: #c88b3a;
+    --planet-saturn: #e4d191;
+    --planet-uranus: #7de8e8;
+    --planet-neptune: #3f54ba;
+    --glass: rgba(255,255,255,0.06);
+    --glass-border: rgba(255,255,255,0.12);
+    --glass-strong: rgba(255,255,255,0.1);
+    --font-th: 'Sarabun', sans-serif;
+    --font-display: 'Chakra Petch', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--space-dark);
+    color: #fff;
+    font-family: var(--font-th);
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* ===== PAGES ===== */
+  .page { position: absolute; inset: 0; display: none; }
+  .page.active { display: flex; }
+
+  /* ===== STARFIELD ===== */
+  #starfield {
+    position: fixed; inset: 0; z-index: 0;
+    pointer-events: none;
+  }
+
+  /* ===== HOME PAGE ===== */
+  #home-page {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+  }
+
+  .home-content {
+    text-align: center;
+    z-index: 2;
+    padding: 2rem;
+    animation: fadeInUp 1s ease both;
+  }
+
+  .home-planet-preview {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+  }
+
+  .app-logo {
+    font-size: 5rem;
+    margin-bottom: 0.5rem;
+    animation: float 4s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-12px); }
+  }
+
+  .app-title {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 700;
+    background: linear-gradient(135deg, #f5c842 0%, #ff9800 30%, #4fc3f7 70%, #a78bfa 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 0.5rem;
+    letter-spacing: -0.02em;
+  }
+
+  .app-subtitle {
+    font-size: 1rem;
+    color: rgba(255,255,255,0.55);
+    margin-bottom: 0.25rem;
+  }
+
+  .badge-row {
+    display: flex; gap: 0.5rem; justify-content: center;
+    flex-wrap: wrap; margin: 1rem 0 2rem;
+  }
+
+  .badge {
+    font-size: 0.7rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    color: rgba(255,255,255,0.6);
+    letter-spacing: 0.05em;
+  }
+
+  .home-buttons {
+    display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;
+  }
+
+  .btn-primary {
+    font-family: var(--font-th);
+    font-size: 1rem;
+    font-weight: 600;
+    padding: 0.9rem 2.5rem;
+    border-radius: 50px;
+    border: none;
+    background: linear-gradient(135deg, #4fc3f7, #2196f3);
+    color: #fff;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 0 30px rgba(79,195,247,0.3);
+    position: relative; overflow: hidden;
+  }
+
+  .btn-primary::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.2), transparent);
+    opacity: 0; transition: opacity 0.3s;
+  }
+
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 0 40px rgba(79,195,247,0.5); }
+  .btn-primary:hover::before { opacity: 1; }
+  .btn-primary:active { transform: translateY(0); }
+
+  .btn-secondary {
+    font-family: var(--font-th);
+    font-size: 1rem;
+    font-weight: 500;
+    padding: 0.9rem 2.5rem;
+    border-radius: 50px;
+    border: 1px solid var(--glass-border);
+    background: var(--glass);
+    color: rgba(255,255,255,0.85);
+    cursor: pointer;
+    transition: all 0.3s;
+    backdrop-filter: blur(10px);
+  }
+
+  .btn-secondary:hover {
+    background: var(--glass-strong);
+    border-color: rgba(255,255,255,0.3);
+    transform: translateY(-2px);
+  }
+
+  /* ===== LESSON SELECT PAGE ===== */
+  #lesson-page {
+    flex-direction: column;
+    overflow-y: auto;
+    z-index: 1;
+  }
+
+  .lesson-page-inner {
+    width: 100%; max-width: 900px;
+    margin: 0 auto; padding: 2rem 1.5rem;
+    z-index: 2; min-height: 100%;
+    display: flex; flex-direction: column;
+  }
+
+  .page-header {
+    display: flex; align-items: center; gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .back-btn {
+    font-family: var(--font-th);
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    color: rgba(255,255,255,0.7);
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    backdrop-filter: blur(10px);
+  }
+  .back-btn:hover { background: var(--glass-strong); color: #fff; }
+
+  .page-title {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--accent-blue);
+  }
+
+  .progress-overview {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 1.2rem 1.5rem;
+    margin-bottom: 1.5rem;
+    backdrop-filter: blur(20px);
+    display: flex; align-items: center; gap: 1.5rem;
+  }
+
+  .progress-bar-wrap {
+    flex: 1;
+    height: 6px; background: rgba(255,255,255,0.1);
+    border-radius: 3px; overflow: hidden;
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4fc3f7, #a78bfa);
+    border-radius: 3px;
+    transition: width 0.6s ease;
+  }
+
+  .progress-label {
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.6);
+    white-space: nowrap;
+  }
+
+  .score-display {
+    font-family: var(--font-display);
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--accent-gold);
+  }
+
+  .lessons-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 1rem;
+  }
+
+  .lesson-card {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 1.5rem;
+    cursor: pointer;
+    transition: all 0.3s;
+    backdrop-filter: blur(20px);
+    position: relative; overflow: hidden;
+  }
+
+  .lesson-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--card-accent, #4fc3f7), transparent);
+    opacity: 0; transition: opacity 0.3s;
+  }
+
+  .lesson-card:hover {
+    border-color: rgba(255,255,255,0.25);
+    transform: translateY(-3px);
+    background: rgba(255,255,255,0.1);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+  }
+
+  .lesson-card:hover::before { opacity: 1; }
+
+  .lesson-card.completed { border-color: rgba(79,195,247,0.3); }
+
+  .lesson-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+  .lesson-title {
+    font-size: 1rem; font-weight: 600;
+    margin-bottom: 0.4rem;
+    line-height: 1.3;
+  }
+  .lesson-desc {
+    font-size: 0.82rem;
+    color: rgba(255,255,255,0.5);
+    margin-bottom: 1rem;
+    line-height: 1.5;
+  }
+
+  .lesson-meta {
+    display: flex; align-items: center; justify-content: space-between;
+  }
+
+  .lesson-duration {
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.4);
+  }
+
+  .lesson-status {
+    font-size: 0.75rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 20px;
+  }
+
+  .status-completed { background: rgba(79,195,247,0.15); color: #4fc3f7; }
+  .status-pending { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.4); }
+
+  /* ===== SCENE PAGE ===== */
+  #scene-page {
+    flex-direction: column;
+    z-index: 1;
+  }
+
+  #solar-canvas {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+  }
+
+  /* ===== HUD ===== */
+  .hud {
+    position: absolute; inset: 0;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  .hud-top {
+    position: absolute; top: 0; left: 0; right: 0;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1rem 1.5rem;
+    pointer-events: all;
+  }
+
+  .hud-bottom {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    display: flex; align-items: flex-end; justify-content: space-between;
+    padding: 1rem 1.5rem;
+    pointer-events: all;
+  }
+
+  .hud-pill {
+    background: rgba(2,5,16,0.8);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(20px);
+    border-radius: 50px;
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--accent-blue);
+    font-family: var(--font-display);
+    letter-spacing: 0.05em;
+  }
+
+  .hud-controls {
+    display: flex; flex-direction: column; gap: 0.5rem;
+  }
+
+  .hud-btn {
+    font-family: var(--font-th);
+    background: rgba(2,5,16,0.85);
+    border: 1px solid var(--glass-border);
+    color: rgba(255,255,255,0.85);
+    padding: 0.55rem 1.2rem;
+    border-radius: 50px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.2s;
+    backdrop-filter: blur(20px);
+    white-space: nowrap;
+  }
+  .hud-btn:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.3); }
+  .hud-btn.accent { background: rgba(79,195,247,0.15); border-color: rgba(79,195,247,0.4); color: #4fc3f7; }
+  .hud-btn.accent:hover { background: rgba(79,195,247,0.25); }
+  .hud-btn.quiz-btn { background: rgba(245,200,66,0.15); border-color: rgba(245,200,66,0.4); color: var(--accent-gold); }
+  .hud-btn.quiz-btn:hover { background: rgba(245,200,66,0.25); }
+
+  .speed-control {
+    background: rgba(2,5,16,0.85);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 0.75rem 1rem;
+    backdrop-filter: blur(20px);
+  }
+
+  .speed-label {
+    font-size: 0.72rem;
+    color: rgba(255,255,255,0.45);
+    margin-bottom: 0.4rem;
+  }
+
+  .speed-row { display: flex; align-items: center; gap: 0.75rem; }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    width: 100px; height: 4px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 2px; outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: #4fc3f7;
+    cursor: pointer;
+    box-shadow: 0 0 8px rgba(79,195,247,0.5);
+  }
+
+  .speed-val {
+    font-family: var(--font-display);
+    font-size: 0.85rem; font-weight: 600;
+    color: var(--accent-blue);
+    min-width: 30px;
+  }
+
+  .hint-text {
+    position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%);
+    font-size: 0.72rem;
+    color: rgba(255,255,255,0.25);
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+  /* ===== PLANET PANEL ===== */
+  .planet-panel {
+    position: absolute; top: 50%; right: 1.5rem;
+    transform: translateY(-50%);
+    width: 300px;
+    background: rgba(2,5,16,0.92);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    backdrop-filter: blur(30px);
+    padding: 1.5rem;
+    z-index: 20;
+    display: none;
+    animation: slideInRight 0.35s cubic-bezier(0.34,1.56,0.64,1) both;
+    pointer-events: all;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+
+  .planet-panel.visible { display: block; }
+
+  @keyframes slideInRight {
+    from { opacity: 0; transform: translateY(-50%) translateX(30px); }
+    to { opacity: 1; transform: translateY(-50%) translateX(0); }
+  }
+
+  .panel-close {
+    position: absolute; top: 1rem; right: 1rem;
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    color: rgba(255,255,255,0.5);
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 0.85rem;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+  }
+  .panel-close:hover { background: var(--glass-strong); color: #fff; }
+
+  .panel-planet-icon {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    margin-bottom: 1rem;
+    position: relative;
+    box-shadow: inset -8px -4px 20px rgba(0,0,0,0.5), 0 0 20px rgba(255,255,255,0.05);
+  }
+
+  .panel-name {
+    font-family: var(--font-display);
+    font-size: 1.4rem; font-weight: 700;
+    margin-bottom: 0.25rem;
+  }
+
+  .panel-name-en {
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.4);
+    margin-bottom: 1rem;
+    font-family: var(--font-display);
+    letter-spacing: 0.1em;
+  }
+
+  .panel-desc {
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.7);
+    line-height: 1.7;
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--glass-border);
+  }
+
+  .stats-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 0.5rem; margin-bottom: 1rem;
+  }
+
+  .stat-item {
+    background: var(--glass);
+    border-radius: 10px;
+    padding: 0.6rem 0.75rem;
+  }
+
+  .stat-label {
+    font-size: 0.68rem;
+    color: rgba(255,255,255,0.35);
+    margin-bottom: 0.2rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .stat-value {
+    font-family: var(--font-display);
+    font-size: 0.85rem; font-weight: 600;
+    color: #fff;
+  }
+
+  .facts-title {
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.4);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.6rem;
+  }
+
+  .fact-item {
+    font-size: 0.82rem;
+    color: rgba(255,255,255,0.65);
+    padding: 0.4rem 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    line-height: 1.5;
+    display: flex; gap: 0.5rem;
+  }
+
+  .fact-item::before {
+    content: '→';
+    color: var(--accent-blue);
+    flex-shrink: 0;
+  }
+
+  /* ===== QUIZ PANEL ===== */
+  .quiz-overlay {
+    position: absolute; inset: 0;
+    background: rgba(2,5,16,0.85);
+    backdrop-filter: blur(10px);
+    z-index: 30;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+  }
+
+  .quiz-overlay.visible { display: flex; }
+
+  .quiz-box {
+    background: rgba(8,15,46,0.95);
+    border: 1px solid var(--glass-border);
+    border-radius: 24px;
+    padding: 2rem;
+    max-width: 560px;
+    width: 100%;
+    animation: fadeInUp 0.4s ease both;
+    position: relative;
+  }
+
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .quiz-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 1.5rem;
+  }
+
+  .quiz-progress-text {
+    font-size: 0.8rem; color: rgba(255,255,255,0.45);
+  }
+
+  .quiz-score-badge {
+    font-family: var(--font-display);
+    font-size: 0.9rem; font-weight: 700;
+    color: var(--accent-gold);
+  }
+
+  .quiz-progress-bar {
+    height: 3px; background: rgba(255,255,255,0.08);
+    border-radius: 2px; margin-bottom: 1.5rem; overflow: hidden;
+  }
+
+  .quiz-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4fc3f7, #a78bfa);
+    transition: width 0.5s ease;
+  }
+
+  .quiz-question {
+    font-size: 1.05rem; font-weight: 500;
+    line-height: 1.65;
+    margin-bottom: 1.5rem;
+    color: rgba(255,255,255,0.95);
+  }
+
+  .quiz-choices { display: flex; flex-direction: column; gap: 0.6rem; }
+
+  .choice-btn {
+    font-family: var(--font-th);
+    text-align: left;
+    padding: 0.85rem 1.1rem;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.04);
+    color: rgba(255,255,255,0.8);
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    width: 100%;
+    line-height: 1.4;
+  }
+
+  .choice-btn:not(:disabled):hover {
+    background: rgba(79,195,247,0.1);
+    border-color: rgba(79,195,247,0.35);
+    color: #fff;
+  }
+
+  .choice-btn.correct {
+    background: rgba(76,175,80,0.15);
+    border-color: rgba(76,175,80,0.5);
+    color: #81c784;
+  }
+
+  .choice-btn.wrong {
+    background: rgba(239,83,80,0.12);
+    border-color: rgba(239,83,80,0.4);
+    color: #ef9a9a;
+  }
+
+  .quiz-feedback {
+    margin-top: 1rem;
+    padding: 0.85rem 1rem;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    display: none;
+  }
+
+  .quiz-feedback.visible { display: block; }
+  .quiz-feedback.correct-fb { background: rgba(76,175,80,0.1); border: 1px solid rgba(76,175,80,0.25); color: #a5d6a7; }
+  .quiz-feedback.wrong-fb { background: rgba(239,83,80,0.1); border: 1px solid rgba(239,83,80,0.25); color: #ffcdd2; }
+
+  .quiz-next-btn {
+    font-family: var(--font-th);
+    width: 100%;
+    margin-top: 1rem;
+    padding: 0.9rem;
+    border-radius: 12px;
+    border: none;
+    background: linear-gradient(135deg, #4fc3f7, #2196f3);
+    color: #fff;
+    font-size: 1rem; font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: none;
+  }
+
+  .quiz-next-btn.visible { display: block; }
+  .quiz-next-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+
+  /* ===== RESULT PAGE ===== */
+  #result-page {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+  }
+
+  .result-box {
+    background: rgba(8,15,46,0.95);
+    border: 1px solid var(--glass-border);
+    border-radius: 28px;
+    padding: 2.5rem;
+    max-width: 480px;
+    width: 90%;
+    text-align: center;
+    backdrop-filter: blur(30px);
+    z-index: 2;
+    animation: fadeInUp 0.5s ease both;
+  }
+
+  .result-emoji { font-size: 4rem; margin-bottom: 1rem; }
+  .result-title {
+    font-family: var(--font-display);
+    font-size: 1.8rem; font-weight: 700;
+    color: var(--accent-gold);
+    margin-bottom: 0.5rem;
+  }
+  .result-subtitle { font-size: 0.9rem; color: rgba(255,255,255,0.5); margin-bottom: 2rem; }
+
+  .result-score-ring {
+    width: 120px; height: 120px;
+    margin: 0 auto 1.5rem;
+    position: relative;
+  }
+
+  .result-score-ring svg { transform: rotate(-90deg); }
+
+  .result-score-center {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+  }
+
+  .score-num {
+    font-family: var(--font-display);
+    font-size: 2rem; font-weight: 700;
+    color: #fff; line-height: 1;
+  }
+
+  .score-denom { font-size: 0.8rem; color: rgba(255,255,255,0.4); }
+
+  .badges-row {
+    display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+  }
+
+  .badge-earned {
+    font-size: 0.78rem;
+    padding: 0.35rem 0.9rem;
+    border-radius: 20px;
+    background: rgba(245,200,66,0.15);
+    border: 1px solid rgba(245,200,66,0.3);
+    color: var(--accent-gold);
+  }
+
+  .result-buttons {
+    display: flex; flex-direction: column; gap: 0.75rem;
+  }
+
+  .btn-outline {
+    font-family: var(--font-th);
+    padding: 0.8rem;
+    border-radius: 12px;
+    border: 1px solid var(--glass-border);
+    background: var(--glass);
+    color: rgba(255,255,255,0.8);
+    cursor: pointer; font-size: 0.9rem;
+    transition: all 0.2s;
+  }
+  .btn-outline:hover { background: var(--glass-strong); color: #fff; }
+
+  /* ===== CANVAS TOOLTIP ===== */
+  #canvas-tooltip {
+    position: absolute;
+    background: rgba(2,5,16,0.92);
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    padding: 0.5rem 0.85rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #fff;
+    pointer-events: none;
+    display: none;
+    z-index: 15;
+    white-space: nowrap;
+    backdrop-filter: blur(20px);
+    font-family: var(--font-th);
+  }
+
+  /* ===== LOADING ===== */
+  #loading-overlay {
+    position: fixed; inset: 0;
+    background: var(--space-dark);
+    z-index: 100;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    transition: opacity 0.5s;
+  }
+
+  .loading-logo { font-size: 4rem; animation: float 2s ease-in-out infinite; }
+  .loading-text {
+    font-family: var(--font-display);
+    font-size: 1.2rem;
+    color: var(--accent-blue);
+    margin-top: 1rem;
+    letter-spacing: 0.1em;
+  }
+
+  .loading-bar-wrap {
+    width: 200px; height: 3px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 2px;
+    margin-top: 1.5rem; overflow: hidden;
+  }
+
+  .loading-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #4fc3f7, #a78bfa);
+    border-radius: 2px;
+    animation: loadingAnim 1.5s ease both;
+  }
+
+  @keyframes loadingAnim {
+    from { width: 0; }
+    to { width: 100%; }
+  }
+
+  /* ===== RESPONSIVE ===== */
+  @media (max-width: 600px) {
+    .planet-panel { right: 0.5rem; left: 0.5rem; width: auto; top: auto; bottom: 80px; transform: none; }
+    @keyframes slideInRight {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .hud-top { padding: 0.75rem 1rem; }
+    .hud-bottom { padding: 0.75rem 1rem; }
+    .speed-control { display: none; }
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- Loading Overlay -->
+<div id="loading-overlay">
+  <div class="loading-logo">🪐</div>
+  <div class="loading-text">กำลังโหลดจักรวาล...</div>
+  <div class="loading-bar-wrap"><div class="loading-bar"></div></div>
+</div>
+
+<!-- Starfield Canvas (background) -->
+<canvas id="starfield"></canvas>
+
+<!-- Tooltip -->
+<div id="canvas-tooltip"></div>
+
+<!-- ============ HOME PAGE ============ -->
+<div id="home-page" class="page active">
+  <canvas id="home-canvas" style="position:absolute;inset:0;width:100%;height:100%;z-index:1;"></canvas>
+  <div class="home-content">
+    <div class="app-logo">🪐</div>
+    <h1 class="app-title">ระบบสุริยะจักรวาล</h1>
+    <p class="app-subtitle">สำรวจระบบสุริยะในรูปแบบ 3D แบบโต้ตอบได้</p>
+    <div class="badge-row">
+      <span class="badge">🖥 Desktop</span>
+      <span class="badge">📱 Mobile</span>
+      <span class="badge">🥽 WebXR Ready</span>
+      <span class="badge">🇹🇭 ภาษาไทย</span>
+    </div>
+    <div class="home-buttons">
+      <button class="btn-primary" onclick="goTo('lesson')">🚀 เริ่มสำรวจ</button>
+      <button class="btn-secondary" onclick="goToFreeExplore()">🔭 สำรวจอิสระ</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ LESSON SELECT PAGE ============ -->
+<div id="lesson-page" class="page">
+  <div class="lesson-page-inner">
+    <div class="page-header">
+      <button class="back-btn" onclick="goTo('home')">← กลับ</button>
+      <div class="page-title">เลือกบทเรียน</div>
+    </div>
+
+    <div class="progress-overview">
+      <div>
+        <div class="progress-label">ความก้าวหน้า</div>
+        <div class="progress-bar-wrap" style="width:200px;margin-top:6px;">
+          <div class="progress-bar-fill" id="overall-progress" style="width:0%"></div>
+        </div>
+      </div>
+      <div>
+        <div class="progress-label">คะแนนรวม</div>
+        <div class="score-display" id="total-score-display">0 คะแนน</div>
+      </div>
+    </div>
+
+    <div class="lessons-grid" id="lessons-grid"></div>
+  </div>
+</div>
+
+<!-- ============ SCENE PAGE ============ -->
+<div id="scene-page" class="page">
+  <canvas id="solar-canvas"></canvas>
+
+  <!-- HUD -->
+  <div class="hud">
+    <div class="hud-top">
+      <div style="display:flex;gap:0.5rem;align-items:center;">
+        <button class="hud-btn" onclick="goTo('lesson')" id="scene-back-btn">← กลับ</button>
+        <div class="hud-pill" id="lesson-name-hud">🪐 ระบบสุริยะ</div>
+      </div>
+      <div style="display:flex;gap:0.5rem;">
+        <button class="hud-btn accent" onclick="togglePause()" id="pause-btn">⏸ หยุด</button>
+        <button class="hud-btn" onclick="resetCamera()">🎯 รีเซ็ต</button>
+      </div>
+    </div>
+
+    <div class="hud-bottom">
+      <div class="speed-control">
+        <div class="speed-label">⏱ ความเร็วการโคจร</div>
+        <div class="speed-row">
+          <input type="range" id="speed-slider" min="0" max="5" step="0.1" value="1" oninput="updateSpeed(this.value)">
+          <span class="speed-val" id="speed-val">1.0x</span>
+        </div>
+      </div>
+
+      <div class="hud-controls">
+        <button class="hud-btn quiz-btn" id="quiz-open-btn" onclick="openQuiz()" style="display:none">❓ ทำแบบทดสอบ</button>
+        <button class="hud-btn" onclick="toggleScaleMode()" id="scale-btn">📏 เปรียบเทียบขนาด</button>
+      </div>
+    </div>
+
+    <div class="hint-text" id="canvas-hint">คลิกลากเพื่อหมุนกล้อง · Scroll เพื่อ Zoom · คลิกดาวเพื่อดูข้อมูล</div>
+  </div>
+
+  <!-- Planet Info Panel -->
+  <div class="planet-panel" id="planet-panel">
+    <button class="panel-close" onclick="closePlanetPanel()">✕</button>
+    <div class="panel-planet-icon" id="panel-planet-icon"></div>
+    <div class="panel-name" id="panel-name"></div>
+    <div class="panel-name-en" id="panel-name-en"></div>
+    <div class="panel-desc" id="panel-desc"></div>
+    <div class="stats-grid" id="panel-stats"></div>
+    <div class="facts-title">ข้อเท็จจริงน่าสนใจ</div>
+    <div id="panel-facts"></div>
+  </div>
+
+  <!-- Quiz Overlay -->
+  <div class="quiz-overlay" id="quiz-overlay">
+    <div class="quiz-box">
+      <div class="quiz-header">
+        <span class="quiz-progress-text" id="quiz-progress-text">ข้อที่ 1 / 5</span>
+        <span class="quiz-score-badge" id="quiz-score-badge">คะแนน: 0</span>
+      </div>
+      <div class="quiz-progress-bar">
+        <div class="quiz-progress-fill" id="quiz-progress-fill" style="width:0%"></div>
+      </div>
+      <div class="quiz-question" id="quiz-question"></div>
+      <div class="quiz-choices" id="quiz-choices"></div>
+      <div class="quiz-feedback" id="quiz-feedback"></div>
+      <button class="quiz-next-btn" id="quiz-next-btn" onclick="nextQuestion()">ข้อถัดไป →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ RESULT PAGE ============ -->
+<div id="result-page" class="page">
+  <canvas id="result-canvas" style="position:absolute;inset:0;width:100%;height:100%;z-index:1;"></canvas>
+  <div class="result-box" style="z-index:2;">
+    <div class="result-emoji" id="result-emoji">🏆</div>
+    <div class="result-title" id="result-title">ยอดเยี่ยม!</div>
+    <div class="result-subtitle" id="result-subtitle">คุณผ่านบทเรียนแล้ว</div>
+
+    <div class="result-score-ring">
+      <svg width="120" height="120" viewBox="0 0 120 120">
+        <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="8"/>
+        <circle cx="60" cy="60" r="52" fill="none" stroke="url(#scoreGrad)" stroke-width="8"
+          stroke-dasharray="326.7" stroke-dashoffset="326.7" stroke-linecap="round"
+          id="score-arc"/>
+        <defs>
+          <linearGradient id="scoreGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#4fc3f7"/>
+            <stop offset="100%" stop-color="#a78bfa"/>
+          </linearGradient>
+        </defs>
+      </svg>
+      <div class="result-score-center">
+        <div class="score-num" id="score-num">0</div>
+        <div class="score-denom" id="score-denom">/ 5</div>
+      </div>
+    </div>
+
+    <div class="badges-row" id="badges-row"></div>
+
+    <div class="result-buttons">
+      <button class="btn-primary" onclick="continueNextLesson()">บทถัดไป →</button>
+      <button class="btn-outline" onclick="retryLesson()">🔄 เรียนอีกครั้ง</button>
+      <button class="btn-outline" onclick="goTo('lesson')">📚 เลือกบทเรียน</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  DATA
+// ============================================================
+const LESSONS = [
+  { id: 0, title: 'ดวงอาทิตย์ — หัวใจระบบสุริยะ', desc: 'เรียนรู้เกี่ยวกับดวงอาทิตย์ ดาวของเรา', icon: '☀️', color: '#f5c842', accent: '#f59e0b' },
+  { id: 1, title: 'ดาวเคราะห์ชั้นใน — โลกหิน', desc: 'สำรวจดาวพุธ ดาวศุกร์ โลก ดาวอังคาร', icon: '🌍', color: '#4fc3f7', accent: '#2196f3' },
+  { id: 2, title: 'ดาวเคราะห์ชั้นนอก — ยักษ์แก๊ส', desc: 'ค้นพบดาวพฤหัส เสาร์ ยูเรนัส เนปจูน', icon: '🪐', color: '#a78bfa', accent: '#7c3aed' },
+  { id: 3, title: 'ดวงจันทร์และบริวาร', desc: 'สำรวจดวงจันทร์ของดาวเคราะห์ต่าง ๆ', icon: '🌙', color: '#94a3b8', accent: '#64748b' },
+  { id: 4, title: 'แบบทดสอบ — ท้าทายนักสำรวจ', desc: 'ทดสอบความรู้ระบบสุริยะของคุณ', icon: '🚀', color: '#f97316', accent: '#ea580c' },
+];
+
+const PLANETS = [
+  { id: 'sun',     nameTh: 'ดวงอาทิตย์', nameEn: 'THE SUN',    radius: 40,   orbitR: 0,   speed: 0,      color: '#FDB813', emissive: true,
+    desc: 'ดวงดาวที่เป็นศูนย์กลางของระบบสุริยะ ประกอบด้วยไฮโดรเจนและฮีเลียม อุณหภูมิพื้นผิว 5,500°C',
+    dist: '—', diam: '1,392,700 กม.', moons: 0,
+    facts: ['ใหญ่กว่าโลก 1.3 ล้านเท่า', 'แสงใช้เวลา 8 นาทีถึงโลก', 'อายุประมาณ 4.6 พันล้านปี'] },
+  { id: 'mercury', nameTh: 'ดาวพุธ',     nameEn: 'MERCURY',    radius: 5,    orbitR: 80,  speed: 0.047,  color: '#b5b5b5',
+    desc: 'ดาวเคราะห์ที่อยู่ใกล้ดวงอาทิตย์มากที่สุด ไม่มีชั้นบรรยากาศ อุณหภูมิแตกต่างสูง',
+    dist: '57.9 ล้าน กม.', diam: '4,879 กม.', moons: 0,
+    facts: ['ไม่มีชั้นบรรยากาศ', 'หนึ่งวัน = 59 วันโลก', 'เต็มไปด้วยหลุมอุกกาบาต'] },
+  { id: 'venus',   nameTh: 'ดาวศุกร์',   nameEn: 'VENUS',      radius: 9,    orbitR: 130, speed: 0.035,  color: '#e8cda0',
+    desc: 'ดาวเคราะห์ที่ร้อนที่สุดในระบบสุริยะ มีชั้นบรรยากาศ CO₂ หนาแน่น อุณหภูมิ 465°C',
+    dist: '108.2 ล้าน กม.', diam: '12,104 กม.', moons: 0,
+    facts: ['ร้อนกว่าดาวพุธแม้อยู่ไกลกว่า', 'หมุนรอบตัวเองทวนเข็มนาฬิกา', 'สว่างที่สุดบนท้องฟ้า (หลังดวงจันทร์)'] },
+  { id: 'earth',   nameTh: 'โลก',        nameEn: 'EARTH',      radius: 10,   orbitR: 185, speed: 0.029,  color: '#4fa3e0',
+    desc: 'บ้านของเรา ดาวเคราะห์เดียวที่รู้จักว่ามีสิ่งมีชีวิต มีน้ำปกคลุม 71% ของพื้นผิว',
+    dist: '149.6 ล้าน กม.', diam: '12,742 กม.', moons: 1,
+    facts: ['71% ปกคลุมด้วยน้ำ', 'มีดวงจันทร์ 1 ดวง', 'ชั้นบรรยากาศปกป้องจากรังสีอัลตราไวโอเลต'] },
+  { id: 'mars',    nameTh: 'ดาวอังคาร',  nameEn: 'MARS',       radius: 7,    orbitR: 250, speed: 0.024,  color: '#c1440e',
+    desc: 'ดาวแดง เป้าหมายการสำรวจของมนุษยชาติ มีภูเขาไฟสูงสุดในระบบสุริยะ',
+    dist: '227.9 ล้าน กม.', diam: '6,779 กม.', moons: 2,
+    facts: ['มีภูเขาไฟ Olympus Mons สูง 21 กม.', 'มีดวงจันทร์ 2 ดวง', 'มีพายุฝุ่นขนาดใหญ่'] },
+  { id: 'jupiter', nameTh: 'ดาวพฤหัสบดี',nameEn: 'JUPITER',    radius: 26,   orbitR: 340, speed: 0.013,  color: '#c88b3a',
+    desc: 'ดาวเคราะห์ที่ใหญ่ที่สุด มี Great Red Spot พายุยักษ์ที่หมุนมานับร้อยปี',
+    dist: '778.5 ล้าน กม.', diam: '139,820 กม.', moons: 95,
+    facts: ['ใหญ่กว่าโลก 1,300 เท่า', 'มีดวงจันทร์ 95 ดวง', 'Great Red Spot กว้างกว่าโลก'] },
+  { id: 'saturn',  nameTh: 'ดาวเสาร์',   nameEn: 'SATURN',     radius: 21,   orbitR: 430, speed: 0.009,  color: '#e4d191', hasRing: true,
+    desc: 'ดาวเคราะห์ที่มีวงแหวนสวยงาม ประกอบด้วยน้ำแข็งและหิน ความหนาแน่นต่ำกว่าน้ำ',
+    dist: '1,432 ล้าน กม.', diam: '116,460 กม.', moons: 146,
+    facts: ['วงแหวนกว้าง 282,000 กม.', 'ลอยน้ำได้เพราะเบากว่าน้ำ', 'มีดวงจันทร์ Titan ที่มีบรรยากาศ'] },
+  { id: 'uranus',  nameTh: 'ดาวยูเรนัส', nameEn: 'URANUS',     radius: 15,   orbitR: 510, speed: 0.006,  color: '#7de8e8',
+    desc: 'ดาวเคราะห์น้ำแข็งที่นอนตะแคงโคจร มีสีฟ้าอมเขียวจากก๊าซมีเทน',
+    dist: '2,872 ล้าน กม.', diam: '50,724 กม.', moons: 28,
+    facts: ['แกนเอียง 98 องศา', 'หนาวที่สุดในระบบสุริยะ (-224°C)', 'มีวงแหวน 13 วง'] },
+  { id: 'neptune', nameTh: 'ดาวเนปจูน',  nameEn: 'NEPTUNE',    radius: 14,   orbitR: 590, speed: 0.005,  color: '#3f54ba',
+    desc: 'ดาวเคราะห์ที่ไกลที่สุด มีลมพายุแรงที่สุดในระบบสุริยะ ลม 2,100 กม./ชม.',
+    dist: '4,495 ล้าน กม.', diam: '49,244 กม.', moons: 16,
+    facts: ['ลมเร็วสุดในระบบสุริยะ 2,100 กม./ชม.', 'โคจรรอบดวงอาทิตย์ใช้เวลา 165 ปี', 'ถูกค้นพบจากการคำนวณทางคณิตศาสตร์'] },
+];
+
+const QUIZ_DATA = {
+  0: [ // ดวงอาทิตย์
+    { q: 'ดวงอาทิตย์ประกอบด้วยธาตุอะไรเป็นหลัก?', c: ['ออกซิเจนและไนโตรเจน','ไฮโดรเจนและฮีเลียม','คาร์บอนและเหล็ก','ทองและเงิน'], a: 1, ex: 'ดวงอาทิตย์ประกอบด้วยไฮโดรเจน 73% และฮีเลียม 25%' },
+    { q: 'แสงจากดวงอาทิตย์ใช้เวลานานเท่าใดถึงโลก?', c: ['1 วินาที','8 นาที','1 ชั่วโมง','1 วัน'], a: 1, ex: 'ด้วยความเร็วแสง 300,000 กม./วินาที ใช้เวลา 8.3 นาที' },
+    { q: 'อุณหภูมิพื้นผิวดวงอาทิตย์ประมาณเท่าใด?', c: ['100°C','1,000°C','5,500°C','1,000,000°C'], a: 2, ex: 'พื้นผิวดวงอาทิตย์ร้อน 5,500°C แต่ Corona ร้อนกว่าถึง 1-3 ล้านองศา' },
+    { q: 'ดวงอาทิตย์ใหญ่กว่าโลกประมาณกี่เท่า?', c: ['10 เท่า','100 เท่า','1,300 เท่า','10,000 เท่า'], a: 2, ex: 'ดวงอาทิตย์มีปริมาตรใหญ่กว่าโลก 1.3 ล้านเท่า' },
+    { q: 'อายุของดวงอาทิตย์ประมาณเท่าใด?', c: ['460 ล้านปี','4.6 พันล้านปี','46 พันล้านปี','460 พันล้านปี'], a: 1, ex: 'ดวงอาทิตย์อายุประมาณ 4.6 พันล้านปี และมีอายุเหลืออีกประมาณ 5 พันล้านปี' },
+  ],
+  1: [ // ดาวเคราะห์ชั้นใน
+    { q: 'ดาวเคราะห์ดวงใดอยู่ใกล้ดวงอาทิตย์มากที่สุด?', c: ['ดาวศุกร์','ดาวพุธ','โลก','ดาวอังคาร'], a: 1, ex: 'ดาวพุธอยู่ห่างจากดวงอาทิตย์เฉลี่ย 57.9 ล้านกิโลเมตร' },
+    { q: 'ดาวเคราะห์ดวงใดร้อนที่สุดในระบบสุริยะ?', c: ['ดาวพุธ','ดาวศุกร์','โลก','ดาวอังคาร'], a: 1, ex: 'ดาวศุกร์มีบรรยากาศ CO₂ หนากักความร้อน ทำให้อุณหภูมิสูงถึง 465°C' },
+    { q: '71% ของพื้นผิวโลกปกคลุมด้วยอะไร?', c: ['ดิน','ป่า','น้ำ','หิน'], a: 2, ex: 'โลกมีน้ำปกคลุม 71% ของพื้นผิว ทำให้มองจากอวกาศเห็นเป็นสีน้ำเงิน' },
+    { q: 'ดาวอังคารมีสีอะไร?', c: ['น้ำเงิน','เขียว','แดง','เหลือง'], a: 2, ex: 'ดาวอังคารมีสีแดงเพราะพื้นผิวมีออกไซด์ของเหล็ก (สนิม)' },
+    { q: 'ดาวเคราะห์ชั้นในดวงใดมีดวงจันทร์มากที่สุด?', c: ['ดาวพุธ (0)','ดาวศุกร์ (0)','โลก (1)','ดาวอังคาร (2)'], a: 3, ex: 'ดาวอังคารมีดวงจันทร์ 2 ดวง คือ Phobos และ Deimos' },
+  ],
+  2: [ // ดาวเคราะห์ชั้นนอก
+    { q: 'ดาวเคราะห์ดวงใดใหญ่ที่สุดในระบบสุริยะ?', c: ['ดาวเสาร์','ดาวพฤหัสบดี','ดาวยูเรนัส','ดาวเนปจูน'], a: 1, ex: 'ดาวพฤหัสบดีใหญ่กว่าโลก 1,300 เท่า' },
+    { q: 'ดาวเคราะห์ดวงใดมีวงแหวนที่สวยที่สุด?', c: ['ดาวพฤหัสบดี','ดาวยูเรนัส','ดาวเสาร์','ดาวเนปจูน'], a: 2, ex: 'ดาวเสาร์มีวงแหวนที่กว้างและชัดเจนที่สุด ประกอบด้วยน้ำแข็งและหิน' },
+    { q: 'Great Red Spot บนดาวพฤหัสบดีคืออะไร?', c: ['ภูเขาไฟ','พายุหมุนยักษ์','ทะเลสาบลาวา','หลุมอุกกาบาต'], a: 1, ex: 'Great Red Spot คือพายุหมุนขนาดใหญ่ที่หมุนมานานกว่า 350 ปี' },
+    { q: 'ดาวยูเรนัสมีลักษณะพิเศษอะไร?', c: ['มีวงแหวนสีทอง','แกนเอียง 98 องศา','มีสีแดงสด','หมุนเร็วที่สุด'], a: 1, ex: 'ดาวยูเรนัสมีแกนเอียง 98 องศา จึงดูเหมือนนอนตะแคงโคจร' },
+    { q: 'ดาวเนปจูนมีลมแรงเท่าใด?', c: ['500 กม./ชม.','1,000 กม./ชม.','2,100 กม./ชม.','5,000 กม./ชม.'], a: 2, ex: 'ดาวเนปจูนมีพายุลมแรงที่สุดในระบบสุริยะ ประมาณ 2,100 กม./ชม.' },
+  ],
+  3: [ // ดวงจันทร์
+    { q: 'โลกมีดวงจันทร์กี่ดวง?', c: ['0','1','2','3'], a: 1, ex: 'โลกมีดวงจันทร์ 1 ดวง ที่มีขนาดใหญ่พอส่งผลต่อกระแสน้ำขึ้นลง' },
+    { q: 'ดาวเคราะห์ดวงใดมีดวงจันทร์มากที่สุด?', c: ['โลก','ดาวอังคาร','ดาวพฤหัสบดี','ดาวเสาร์'], a: 3, ex: 'ดาวเสาร์มีดวงจันทร์ 146 ดวง มากที่สุดในระบบสุริยะ' },
+    { q: 'ดวงจันทร์ Titan เป็นบริวารของดาวใด?', c: ['ดาวพฤหัสบดี','ดาวเสาร์','ดาวยูเรนัส','ดาวเนปจูน'], a: 1, ex: 'Titan เป็นดวงจันทร์ของดาวเสาร์ มีชั้นบรรยากาศหนาแน่นคล้ายโลก' },
+    { q: 'ดาวอังคารมีดวงจันทร์กี่ดวง?', c: ['0','1','2','4'], a: 2, ex: 'ดาวอังคารมีดวงจันทร์ 2 ดวง คือ Phobos และ Deimos' },
+    { q: 'ดวงจันทร์ Europa ของดาวพฤหัสน่าสนใจเพราะอะไร?', c: ['สีแดงสด','อาจมีมหาสมุทรใต้น้ำแข็ง','ใหญ่กว่าโลก','มีชั้นบรรยากาศหนา'], a: 1, ex: 'Europa มีน้ำแข็งปกคลุมพื้นผิว ข้างใต้อาจมีมหาสมุทรน้ำเค็ม ซึ่งอาจมีสิ่งมีชีวิต' },
+  ],
+  4: [ // แบบทดสอบรวม
+    { q: 'ดาวเคราะห์ดวงแรกจากดวงอาทิตย์คือดาวใด?', c: ['ดาวศุกร์','ดาวพุธ','โลก','ดาวอังคาร'], a: 1, ex: 'ลำดับจากดวงอาทิตย์: ดาวพุธ ดาวศุกร์ โลก ดาวอังคาร ดาวพฤหัส ดาวเสาร์ ดาวยูเรนัส ดาวเนปจูน' },
+    { q: 'ดาวเคราะห์ในข้อใดเป็น "ดาวแก๊ส" ทั้งหมด?', c: ['โลก ดาวศุกร์ ดาวพุธ','ดาวพฤหัส ดาวเสาร์ ดาวยูเรนัส','ดาวอังคาร โลก ดาวศุกร์','ดาวอังคาร ดาวพฤหัส ดาวเสาร์'], a: 1, ex: 'ดาวพฤหัส เสาร์ ยูเรนัส เนปจูน คือดาวเคราะห์ชั้นนอกประเภทแก๊สและน้ำแข็ง' },
+    { q: 'ระบบสุริยะของเรามีดาวเคราะห์กี่ดวง?', c: ['7','8','9','10'], a: 1, ex: 'ปัจจุบันมีดาวเคราะห์ 8 ดวง (ดาวพลูโตถูกลดสถานะเป็น "ดาวเคราะห์แคระ" ในปี 2006)' },
+    { q: 'ดาวเคราะห์ดวงใดโคจรรอบดวงอาทิตย์ช้าที่สุด?', c: ['ดาวเสาร์','ดาวยูเรนัส','ดาวเนปจูน','ดาวพฤหัสบดี'], a: 2, ex: 'ดาวเนปจูนใช้เวลา 165 ปีในการโคจรรอบดวงอาทิตย์หนึ่งรอบ' },
+    { q: 'อะไรทำให้โลกมีสิ่งมีชีวิต?', c: ['อยู่ใกล้ดวงอาทิตย์ที่สุด','มีน้ำ ออกซิเจน และระยะห่างที่เหมาะสม','มีดวงจันทร์ขนาดใหญ่','มีภูเขาไฟมาก'], a: 1, ex: 'โลกอยู่ใน "Habitable Zone" ที่น้ำเป็นของเหลวได้ มีชั้นบรรยากาศ และแม่เหล็กโลกป้องกันรังสี' },
+  ],
+};
+
+// ============================================================
+//  STATE
+// ============================================================
+let currentPage = 'home';
+let currentLessonId = 0;
+let orbitSpeed = 1;
+let isPaused = false;
+let isScaleMode = false;
+let selectedPlanet = null;
+let quizState = { current: 0, score: 0, answered: false };
+let progress = JSON.parse(localStorage.getItem('solar_vr_progress') || '{}');
+// progress[lessonId] = { completed, score, maxScore }
+
+// ============================================================
+//  PAGE NAVIGATION
+// ============================================================
+function goTo(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(page + '-page').classList.add('active');
+  currentPage = page;
+
+  if (page === 'lesson') renderLessons();
+  if (page === 'scene') {
+    setTimeout(() => startSolarSystem(), 100);
+  }
+  if (page === 'home') startHomeAnimation();
+}
+
+function goToFreeExplore() {
+  currentLessonId = -1;
+  document.getElementById('lesson-name-hud').textContent = '🪐 สำรวจอิสระ';
+  document.getElementById('quiz-open-btn').style.display = 'none';
+  document.getElementById('scene-back-btn').onclick = () => goTo('home');
+  goTo('scene');
+}
+
+// ============================================================
+//  STARFIELD
+// ============================================================
+function initStarfield() {
+  const canvas = document.getElementById('starfield');
+  const ctx = canvas.getContext('2d');
+  const stars = [];
+
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  for (let i = 0; i < 300; i++) {
+    stars.push({
+      x: Math.random(), y: Math.random(),
+      r: Math.random() * 1.2 + 0.2,
+      a: Math.random(),
+      da: (Math.random() - 0.5) * 0.003,
+      twinkleSpeed: 0.005 + Math.random() * 0.01
+    });
+  }
+
+  let t = 0;
+  function draw() {
+    t += 0.016;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    stars.forEach(s => {
+      s.a += s.twinkleSpeed * Math.sin(t * 0.5) * 0.02;
+      s.a = Math.max(0.1, Math.min(1, s.a));
+      ctx.beginPath();
+      ctx.arc(s.x * canvas.width, s.y * canvas.height, s.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255,255,255,${s.a * 0.8})`;
+      ctx.fill();
+    });
+    requestAnimationFrame(draw);
+  }
+  draw();
+}
+
+// ============================================================
+//  HOME ANIMATION (mini orbiting preview)
+// ============================================================
+function startHomeAnimation() {
+  const canvas = document.getElementById('home-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  function resize() {
+    canvas.width = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+  }
+  resize();
+
+  const miniPlanets = [
+    { color: '#FDB813', r: 30, orbitR: 0, speed: 0, angle: 0 },
+    { color: '#b5b5b5', r: 4,  orbitR: 70, speed: 0.04, angle: 0 },
+    { color: '#e8cda0', r: 7,  orbitR: 100, speed: 0.03, angle: 1 },
+    { color: '#4fa3e0', r: 8,  orbitR: 135, speed: 0.025, angle: 2 },
+    { color: '#c1440e', r: 5,  orbitR: 170, speed: 0.02, angle: 3 },
+    { color: '#c88b3a', r: 20, orbitR: 220, speed: 0.012, angle: 4 },
+    { color: '#e4d191', r: 16, orbitR: 270, speed: 0.009, angle: 5 },
+    { color: '#7de8e8', r: 12, orbitR: 315, speed: 0.006, angle: 6 },
+    { color: '#3f54ba', r: 11, orbitR: 355, speed: 0.005, angle: 0 },
+  ];
+
+  let raf;
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const cx = canvas.width / 2, cy = canvas.height / 2;
+
+    // Orbits
+    miniPlanets.slice(1).forEach(p => {
+      ctx.beginPath();
+      ctx.arc(cx, cy, p.orbitR * 0.6, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    });
+
+    // Planets
+    miniPlanets.forEach(p => {
+      p.angle += p.speed * 0.5;
+      const px = cx + Math.cos(p.angle) * p.orbitR * 0.6;
+      const py = cy + Math.sin(p.angle) * p.orbitR * 0.6;
+
+      // Glow
+      const grd = ctx.createRadialGradient(px, py, 0, px, py, p.r * 2.5);
+      grd.addColorStop(0, p.color + '55');
+      grd.addColorStop(1, 'transparent');
+      ctx.beginPath();
+      ctx.arc(px, py, p.r * 2.5, 0, Math.PI * 2);
+      ctx.fillStyle = grd;
+      ctx.fill();
+
+      // Planet
+      ctx.beginPath();
+      ctx.arc(px, py, p.r * 0.6, 0, Math.PI * 2);
+      ctx.fillStyle = p.color;
+      ctx.fill();
+
+      // Saturn ring
+      if (p.color === '#e4d191') {
+        ctx.beginPath();
+        ctx.ellipse(px, py, p.r * 1.6 * 0.6, p.r * 0.4 * 0.6, 0.3, 0, Math.PI * 2);
+        ctx.strokeStyle = p.color + 'aa';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    });
+
+    raf = requestAnimationFrame(draw);
+  }
+  if (window._homeAnimRaf) cancelAnimationFrame(window._homeAnimRaf);
+  draw();
+  window._homeAnimRaf = raf;
+}
+
+// ============================================================
+//  LESSON RENDER
+// ============================================================
+function renderLessons() {
+  const grid = document.getElementById('lessons-grid');
+  const totalScore = Object.values(progress).reduce((s, p) => s + (p.score || 0), 0);
+  const completed = Object.values(progress).filter(p => p.completed).length;
+
+  document.getElementById('overall-progress').style.width = (completed / LESSONS.length * 100) + '%';
+  document.getElementById('total-score-display').textContent = totalScore + ' คะแนน';
+
+  grid.innerHTML = LESSONS.map(l => {
+    const p = progress[l.id];
+    const done = p && p.completed;
+    return `
+      <div class="lesson-card ${done ? 'completed' : ''}" style="--card-accent:${l.accent}" onclick="startLesson(${l.id})">
+        <div class="lesson-icon">${l.icon}</div>
+        <div class="lesson-title">${l.title}</div>
+        <div class="lesson-desc">${l.desc}</div>
+        <div class="lesson-meta">
+          <span class="lesson-duration">⏱ ~10 นาที</span>
+          <span class="lesson-status ${done ? 'status-completed' : 'status-pending'}">
+            ${done ? '✓ ' + (p.score || 0) + '/' + (p.maxScore || 5) + ' คะแนน' : 'ยังไม่ได้เรียน'}
+          </span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function startLesson(id) {
+  currentLessonId = id;
+  document.getElementById('lesson-name-hud').textContent = LESSONS[id].icon + ' ' + LESSONS[id].title;
+  document.getElementById('quiz-open-btn').style.display = 'block';
+  document.getElementById('scene-back-btn').onclick = () => goTo('lesson');
+  goTo('scene');
+}
+
+// ============================================================
+//  SOLAR SYSTEM CANVAS 3D (2.5D)
+// ============================================================
+let solarCanvas, solarCtx;
+let solarRaf = null;
+let camera = { x: 0, y: 0, zoom: 1, targetX: 0, targetY: 0, targetZoom: 1 };
+let mouse = { down: false, lastX: 0, lastY: 0, x: 0, y: 0 };
+let planetAngles = PLANETS.map((p, i) => i * 0.8);
+let hoveredPlanet = null;
+let time = 0;
+
+function startSolarSystem() {
+  solarCanvas = document.getElementById('solar-canvas');
+  solarCtx = solarCanvas.getContext('2d');
+
+  function resize() {
+    solarCanvas.width = solarCanvas.offsetWidth;
+    solarCanvas.height = solarCanvas.offsetHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // Mouse/touch events
+  solarCanvas.addEventListener('mousedown', onMouseDown);
+  solarCanvas.addEventListener('mousemove', onMouseMove);
+  solarCanvas.addEventListener('mouseup', onMouseUp);
+  solarCanvas.addEventListener('mouseleave', onMouseUp);
+  solarCanvas.addEventListener('wheel', onWheel);
+  solarCanvas.addEventListener('click', onCanvasClick);
+  solarCanvas.addEventListener('touchstart', onTouchStart, { passive: true });
+  solarCanvas.addEventListener('touchmove', onTouchMove, { passive: false });
+  solarCanvas.addEventListener('touchend', onTouchEnd);
+
+  if (solarRaf) cancelAnimationFrame(solarRaf);
+  drawSolar();
+}
+
+function drawSolar() {
+  if (!solarCanvas || !solarCtx) return;
+  const W = solarCanvas.width, H = solarCanvas.height;
+
+  // Smooth camera
+  camera.x += (camera.targetX - camera.x) * 0.08;
+  camera.y += (camera.targetY - camera.y) * 0.08;
+  camera.zoom += (camera.targetZoom - camera.zoom) * 0.08;
+
+  // Clear
+  solarCtx.clearRect(0, 0, W, H);
+
+  // Deep space gradient bg
+  const bg = solarCtx.createRadialGradient(W/2, H/2, 0, W/2, H/2, Math.max(W, H));
+  bg.addColorStop(0, '#0a0f2e');
+  bg.addColorStop(1, '#020510');
+  solarCtx.fillStyle = bg;
+  solarCtx.fillRect(0, 0, W, H);
+
+  const cx = W/2 - camera.x, cy = H/2 - camera.y;
+  const z = camera.zoom;
+
+  if (!isPaused) time += 0.016;
+
+  if (isScaleMode) {
+    drawScaleMode(cx, cy, z);
+  } else {
+    drawOrbitalMode(cx, cy, z, W, H);
+  }
+
+  solarRaf = requestAnimationFrame(drawSolar);
+}
+
+function drawOrbitalMode(cx, cy, z, W, H) {
+  const ctx = solarCtx;
+
+  // Draw orbits
+  PLANETS.slice(1).forEach(p => {
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, p.orbitR * z, p.orbitR * z * 0.35, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = selectedPlanet && selectedPlanet.id === p.id
+      ? 'rgba(79,195,247,0.25)' : 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = selectedPlanet && selectedPlanet.id === p.id ? 1.5 : 0.5;
+    ctx.setLineDash(selectedPlanet && selectedPlanet.id === p.id ? [4, 4] : []);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  });
+
+  // Advance angles
+  PLANETS.forEach((p, i) => {
+    if (i === 0) return;
+    if (!isPaused) {
+      planetAngles[i] += p.speed * orbitSpeed * 0.4;
+    }
+  });
+
+  // Draw planets (back to front by y)
+  const drawOrder = PLANETS.map((p, i) => ({ ...p, idx: i }))
+    .map((p, i) => {
+      if (i === 0) return { ...p, px: cx, py: cy };
+      const angle = planetAngles[i];
+      const px = cx + Math.cos(angle) * p.orbitR * z;
+      const py = cy + Math.sin(angle) * p.orbitR * z * 0.35;
+      return { ...p, px, py };
+    })
+    .sort((a, b) => a.py - b.py);
+
+  drawOrder.forEach(p => {
+    const { px, py } = p;
+    const r = p.radius * z * (isHovered(p) ? 1.15 : 1);
+    const isSelected = selectedPlanet && selectedPlanet.id === p.id;
+
+    // Shadow/depth
+    const shadow = solarCtx.createRadialGradient(
+      px + r * 0.3, py + r * 0.2, 0, px, py, r * 1.4
+    );
+    shadow.addColorStop(0, 'rgba(0,0,0,0)');
+    shadow.addColorStop(1, 'rgba(0,0,0,0.6)');
+
+    // Glow
+    const glowR = p.emissive ? r * 2.5 : r * 1.6;
+    const glow = ctx.createRadialGradient(px, py, r * 0.3, px, py, glowR);
+    glow.addColorStop(0, p.color + (p.emissive ? 'cc' : '44'));
+    glow.addColorStop(1, 'transparent');
+    ctx.beginPath();
+    ctx.arc(px, py, glowR, 0, Math.PI * 2);
+    ctx.fillStyle = glow;
+    ctx.fill();
+
+    // Saturn ring (behind)
+    if (p.hasRing && p.py < cy) {
+      drawRing(ctx, px, py, r, p.color);
+    }
+
+    // Planet body
+    const grad = ctx.createRadialGradient(px - r*0.3, py - r*0.3, r*0.1, px, py, r);
+    grad.addColorStop(0, lighten(p.color, 40));
+    grad.addColorStop(0.6, p.color);
+    grad.addColorStop(1, darken(p.color, 50));
+    ctx.beginPath();
+    ctx.arc(px, py, r, 0, Math.PI * 2);
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Sun special: animated corona
+    if (p.id === 'sun') {
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2 + time * 0.3;
+        const dist = r * (1.15 + Math.sin(time * 2 + i) * 0.05);
+        const length = r * (0.15 + Math.sin(time * 1.5 + i * 1.3) * 0.07);
+        ctx.beginPath();
+        ctx.moveTo(px + Math.cos(a) * dist, py + Math.sin(a) * dist);
+        ctx.lineTo(px + Math.cos(a) * (dist + length), py + Math.sin(a) * (dist + length));
+        ctx.strokeStyle = '#FDB81355';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    }
+
+    // Earth clouds
+    if (p.id === 'earth') {
+      ctx.save();
+      ctx.globalAlpha = 0.2;
+      ctx.beginPath();
+      ctx.arc(px, py, r, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.fillStyle = '#ffffff';
+      for (let i = 0; i < 3; i++) {
+        const a = time * 0.1 + i * 2;
+        ctx.beginPath();
+        ctx.ellipse(px + Math.cos(a) * r * 0.4, py + Math.sin(a * 0.5) * r * 0.5, r * 0.4, r * 0.12, a, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    // Shading overlay
+    ctx.beginPath();
+    ctx.arc(px, py, r, 0, Math.PI * 2);
+    ctx.fillStyle = shadow;
+    ctx.fill();
+
+    // Saturn ring (front)
+    if (p.hasRing && p.py >= cy) {
+      drawRing(ctx, px, py, r, p.color);
+    }
+
+    // Selection ring
+    if (isSelected) {
+      ctx.beginPath();
+      ctx.arc(px, py, r + 4, 0, Math.PI * 2);
+      ctx.strokeStyle = '#4fc3f7';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+
+    // Hover ring
+    if (isHovered(p) && !isSelected) {
+      ctx.beginPath();
+      ctx.arc(px, py, r + 3, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    // Label
+    if (z > 0.4 && (isHovered(p) || isSelected)) {
+      ctx.font = `bold ${Math.max(10, 12 * z)}px 'Sarabun', sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.fillStyle = isSelected ? '#4fc3f7' : 'rgba(255,255,255,0.85)';
+      ctx.fillText(p.nameTh, px, py - r - 8);
+    }
+  });
+
+  // Tooltip
+  updateTooltip(drawOrder);
+}
+
+function drawRing(ctx, px, py, r, color) {
+  ctx.save();
+  ctx.translate(px, py);
+  ctx.scale(1, 0.3);
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 2.2, 0, Math.PI * 2);
+  ctx.arc(0, 0, r * 1.4, 0, Math.PI * 2, true);
+  ctx.fillStyle = color + '99';
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawScaleMode(cx, cy, z) {
+  const ctx = solarCtx;
+  const earthRadius = 10;
+  const scale = 3;
+  let x = 80;
+  const baseY = cy;
+
+  PLANETS.forEach(p => {
+    const r = p.radius * scale;
+
+    const grad = ctx.createRadialGradient(x - r*0.3, baseY - r*0.3, r*0.1, x, baseY, r);
+    grad.addColorStop(0, lighten(p.color, 40));
+    grad.addColorStop(0.6, p.color);
+    grad.addColorStop(1, darken(p.color, 50));
+
+    // Glow
+    const grd = ctx.createRadialGradient(x, baseY, 0, x, baseY, r * 2);
+    grd.addColorStop(0, p.color + '33');
+    grd.addColorStop(1, 'transparent');
+    ctx.beginPath();
+    ctx.arc(x, baseY, r * 2, 0, Math.PI * 2);
+    ctx.fillStyle = grd;
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(x, baseY, r, 0, Math.PI * 2);
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    ctx.font = `bold 11px 'Sarabun', sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.fillText(p.nameTh, x, baseY + r + 16);
+
+    x += r * 2 + 20;
+  });
+
+  ctx.font = `14px 'Sarabun', sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  ctx.fillText('⬤ โลก = ' + earthRadius * scale + 'px (ขนาดสัมพัทธ์)', solarCanvas.width / 2, 30);
+}
+
+function getPlanetScreenPos(planet, idx) {
+  if (!solarCanvas) return null;
+  const W = solarCanvas.width, H = solarCanvas.height;
+  const cx = W/2 - camera.x, cy = H/2 - camera.y;
+  const z = camera.zoom;
+  if (idx === 0) return { x: cx, y: cy };
+  const angle = planetAngles[idx];
+  return {
+    x: cx + Math.cos(angle) * planet.orbitR * z,
+    y: cy + Math.sin(angle) * planet.orbitR * z * 0.35
+  };
+}
+
+function isHovered(p) { return hoveredPlanet && hoveredPlanet.id === p.id; }
+
+function updateTooltip(drawOrder) {
+  const tooltip = document.getElementById('canvas-tooltip');
+  if (hoveredPlanet && !selectedPlanet) {
+    tooltip.style.display = 'block';
+    tooltip.textContent = hoveredPlanet.nameTh + ' — คลิกเพื่อดูข้อมูล';
+    tooltip.style.left = (mouse.x + 12) + 'px';
+    tooltip.style.top = (mouse.y - 10) + 'px';
+  } else {
+    tooltip.style.display = 'none';
+  }
+}
+
+// Mouse
+function onMouseDown(e) {
+  mouse.down = true;
+  mouse.lastX = e.clientX;
+  mouse.lastY = e.clientY;
+}
+
+function onMouseMove(e) {
+  mouse.x = e.clientX;
+  mouse.y = e.clientY;
+
+  if (mouse.down) {
+    const dx = e.clientX - mouse.lastX;
+    const dy = e.clientY - mouse.lastY;
+    camera.targetX -= dx;
+    camera.targetY -= dy;
+    mouse.lastX = e.clientX;
+    mouse.lastY = e.clientY;
+  }
+
+  // Check hover
+  hoveredPlanet = null;
+  if (!isScaleMode) {
+    PLANETS.forEach((p, i) => {
+      const pos = getPlanetScreenPos(p, i);
+      if (!pos) return;
+      const r = p.radius * camera.zoom;
+      const dist = Math.hypot(e.clientX - pos.x, e.clientY - pos.y);
+      if (dist < r + 6) hoveredPlanet = p;
+    });
+  }
+  solarCanvas.style.cursor = hoveredPlanet ? 'pointer' : mouse.down ? 'grabbing' : 'grab';
+}
+
+function onMouseUp() { mouse.down = false; }
+
+function onWheel(e) {
+  e.preventDefault();
+  const factor = e.deltaY > 0 ? 0.9 : 1.1;
+  camera.targetZoom = Math.max(0.2, Math.min(3, camera.targetZoom * factor));
+}
+
+function onCanvasClick(e) {
+  // Check if clicked on a planet
+  let clicked = null;
+  PLANETS.forEach((p, i) => {
+    const pos = getPlanetScreenPos(p, i);
+    if (!pos) return;
+    const r = p.radius * camera.zoom;
+    const dist = Math.hypot(e.clientX - pos.x, e.clientY - pos.y);
+    if (dist < r + 8) clicked = p;
+  });
+
+  if (clicked) {
+    selectedPlanet = clicked;
+    showPlanetPanel(clicked);
+  } else {
+    if (!e.target.closest('#planet-panel') && !e.target.closest('.hud')) {
+      // clicked empty space
+    }
+  }
+}
+
+// Touch
+let touchStart = [];
+function onTouchStart(e) {
+  touchStart = [...e.touches];
+  if (e.touches.length === 1) {
+    mouse.down = true;
+    mouse.lastX = e.touches[0].clientX;
+    mouse.lastY = e.touches[0].clientY;
+  }
+}
+
+function onTouchMove(e) {
+  if (e.touches.length === 1) {
+    const dx = e.touches[0].clientX - mouse.lastX;
+    const dy = e.touches[0].clientY - mouse.lastY;
+    camera.targetX -= dx;
+    camera.targetY -= dy;
+    mouse.lastX = e.touches[0].clientX;
+    mouse.lastY = e.touches[0].clientY;
+  } else if (e.touches.length === 2) {
+    const d1 = Math.hypot(touchStart[0].clientX - touchStart[1].clientX, touchStart[0].clientY - touchStart[1].clientY);
+    const d2 = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    camera.targetZoom = Math.max(0.2, Math.min(3, camera.targetZoom * (d2/d1)));
+    touchStart = [...e.touches];
+    e.preventDefault();
+  }
+}
+
+function onTouchEnd(e) {
+  mouse.down = false;
+  if (e.changedTouches.length === 1 && !mouse._dragged) {
+    const tx = e.changedTouches[0].clientX, ty = e.changedTouches[0].clientY;
+    PLANETS.forEach((p, i) => {
+      const pos = getPlanetScreenPos(p, i);
+      if (!pos) return;
+      const r = p.radius * camera.zoom;
+      const dist = Math.hypot(tx - pos.x, ty - pos.y);
+      if (dist < r + 12) { selectedPlanet = p; showPlanetPanel(p); }
+    });
+  }
+}
+
+// Controls
+function updateSpeed(val) {
+  orbitSpeed = parseFloat(val);
+  document.getElementById('speed-val').textContent = orbitSpeed.toFixed(1) + 'x';
+}
+
+function togglePause() {
+  isPaused = !isPaused;
+  const btn = document.getElementById('pause-btn');
+  btn.textContent = isPaused ? '▶ เล่น' : '⏸ หยุด';
+  btn.classList.toggle('accent', !isPaused);
+}
+
+function resetCamera() {
+  camera.targetX = 0; camera.targetY = 0; camera.targetZoom = 1;
+}
+
+function toggleScaleMode() {
+  isScaleMode = !isScaleMode;
+  const btn = document.getElementById('scale-btn');
+  btn.textContent = isScaleMode ? '🪐 กลับโหมดโคจร' : '📏 เปรียบเทียบขนาด';
+  btn.classList.toggle('accent', isScaleMode);
+  closePlanetPanel();
+}
+
+// ============================================================
+//  PLANET PANEL
+// ============================================================
+function showPlanetPanel(p) {
+  const panel = document.getElementById('planet-panel');
+
+  // Icon
+  const icon = document.getElementById('panel-planet-icon');
+  icon.style.background = `radial-gradient(circle at 35% 35%, ${lighten(p.color, 30)}, ${p.color} 50%, ${darken(p.color, 40)})`;
+  if (p.id === 'sun') {
+    icon.style.boxShadow = `0 0 30px ${p.color}88`;
+  } else {
+    icon.style.boxShadow = '';
+  }
+
+  document.getElementById('panel-name').textContent = p.nameTh;
+  document.getElementById('panel-name-en').textContent = p.nameEn;
+  document.getElementById('panel-desc').textContent = p.desc;
+
+  // Stats
+  document.getElementById('panel-stats').innerHTML = `
+    <div class="stat-item">
+      <div class="stat-label">ระยะจากดวงอาทิตย์</div>
+      <div class="stat-value">${p.dist}</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">เส้นผ่านศูนย์กลาง</div>
+      <div class="stat-value">${p.diam}</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">จำนวนดวงจันทร์</div>
+      <div class="stat-value">${p.moons} ดวง</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">ความเร็วโคจร</div>
+      <div class="stat-value">${p.speed > 0 ? (p.speed * 100).toFixed(1) + ' u/s' : '—'}</div>
+    </div>
+  `;
+
+  // Facts
+  document.getElementById('panel-facts').innerHTML = p.facts.map(f =>
+    `<div class="fact-item">${f}</div>`
+  ).join('');
+
+  panel.classList.add('visible');
+}
+
+function closePlanetPanel() {
+  document.getElementById('planet-panel').classList.remove('visible');
+  selectedPlanet = null;
+}
+
+// ============================================================
+//  QUIZ SYSTEM
+// ============================================================
+let quizQuestions = [];
+
+function openQuiz() {
+  const qs = QUIZ_DATA[currentLessonId] || QUIZ_DATA[0];
+  quizQuestions = shuffle([...qs]);
+  quizState = { current: 0, score: 0, answered: false };
+  renderQuizQuestion();
+  document.getElementById('quiz-overlay').classList.add('visible');
+}
+
+function renderQuizQuestion() {
+  const q = quizQuestions[quizState.current];
+  const total = quizQuestions.length;
+
+  document.getElementById('quiz-progress-text').textContent = `ข้อที่ ${quizState.current + 1} / ${total}`;
+  document.getElementById('quiz-score-badge').textContent = `คะแนน: ${quizState.score}`;
+  document.getElementById('quiz-progress-fill').style.width = (quizState.current / total * 100) + '%';
+  document.getElementById('quiz-question').textContent = q.q;
+  document.getElementById('quiz-feedback').className = 'quiz-feedback';
+  document.getElementById('quiz-feedback').textContent = '';
+  document.getElementById('quiz-next-btn').className = 'quiz-next-btn';
+
+  const choicesEl = document.getElementById('quiz-choices');
+  choicesEl.innerHTML = q.c.map((choice, i) =>
+    `<button class="choice-btn" onclick="answerQuiz(${i})">${['A','B','C','D'][i]}. ${choice}</button>`
+  ).join('');
+  quizState.answered = false;
+}
+
+function answerQuiz(idx) {
+  if (quizState.answered) return;
+  quizState.answered = true;
+
+  const q = quizQuestions[quizState.current];
+  const isCorrect = idx === q.a;
+  if (isCorrect) quizState.score++;
+
+  const btns = document.querySelectorAll('.choice-btn');
+  btns.forEach(b => b.disabled = true);
+  btns[idx].classList.add(isCorrect ? 'correct' : 'wrong');
+  if (!isCorrect) btns[q.a].classList.add('correct');
+
+  const fb = document.getElementById('quiz-feedback');
+  fb.textContent = (isCorrect ? '✅ ถูกต้อง! ' : '❌ ไม่ถูกต้อง ') + q.ex;
+  fb.className = `quiz-feedback visible ${isCorrect ? 'correct-fb' : 'wrong-fb'}`;
+
+  const nextBtn = document.getElementById('quiz-next-btn');
+  nextBtn.textContent = quizState.current < quizQuestions.length - 1 ? 'ข้อถัดไป →' : '🏆 ดูผลลัพธ์';
+  nextBtn.className = 'quiz-next-btn visible';
+
+  document.getElementById('quiz-score-badge').textContent = `คะแนน: ${quizState.score}`;
+}
+
+function nextQuestion() {
+  if (quizState.current < quizQuestions.length - 1) {
+    quizState.current++;
+    renderQuizQuestion();
+  } else {
+    finishQuiz();
+  }
+}
+
+function finishQuiz() {
+  document.getElementById('quiz-overlay').classList.remove('visible');
+
+  const score = quizState.score;
+  const max = quizQuestions.length;
+
+  // Save progress
+  progress[currentLessonId] = {
+    completed: true,
+    score,
+    maxScore: max
+  };
+  localStorage.setItem('solar_vr_progress', JSON.stringify(progress));
+
+  showResult(score, max);
+}
+
+function showResult(score, max) {
+  const pct = score / max;
+
+  let emoji = '😊', title = 'ทำได้ดี!';
+  if (pct >= 0.9) { emoji = '🏆'; title = 'ยอดเยี่ยมมาก!'; }
+  else if (pct >= 0.7) { emoji = '⭐'; title = 'ทำได้ดีมาก!'; }
+  else if (pct >= 0.5) { emoji = '👍'; title = 'ทำได้ดี!'; }
+  else { emoji = '📚'; title = 'ลองใหม่อีกครั้ง!'; }
+
+  document.getElementById('result-emoji').textContent = emoji;
+  document.getElementById('result-title').textContent = title;
+  document.getElementById('result-subtitle').textContent =
+    LESSONS[currentLessonId]?.title || 'ระบบสุริยะ';
+  document.getElementById('score-num').textContent = score;
+  document.getElementById('score-denom').textContent = '/ ' + max;
+
+  // Arc animation
+  const arc = document.getElementById('score-arc');
+  const circumference = 326.7;
+  const offset = circumference * (1 - pct);
+  setTimeout(() => {
+    arc.style.transition = 'stroke-dashoffset 1s ease';
+    arc.style.strokeDashoffset = offset;
+  }, 300);
+
+  // Badges
+  const badges = [];
+  if (pct >= 0.6) badges.push('🎖 ผ่านบทเรียน');
+  if (pct >= 0.8) badges.push('⭐ นักสำรวจดาว');
+  if (pct === 1) badges.push('🏆 คะแนนเต็ม!');
+  if (currentLessonId === 4 && pct >= 0.8) badges.push('🚀 นักสำรวจอวกาศ');
+
+  document.getElementById('badges-row').innerHTML = badges.map(b =>
+    `<span class="badge-earned">${b}</span>`
+  ).join('');
+
+  goTo('result');
+  startResultParticles();
+}
+
+function continueNextLesson() {
+  const next = currentLessonId + 1;
+  if (next < LESSONS.length) {
+    startLesson(next);
+  } else {
+    goTo('lesson');
+  }
+}
+
+function retryLesson() {
+  goTo('scene');
+  setTimeout(() => openQuiz(), 500);
+}
+
+// ============================================================
+//  RESULT PARTICLES
+// ============================================================
+function startResultParticles() {
+  const canvas = document.getElementById('result-canvas');
+  const ctx = canvas.getContext('2d');
+
+  function resize() {
+    canvas.width = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+  }
+  resize();
+
+  const particles = [];
+  const colors = ['#f5c842', '#4fc3f7', '#a78bfa', '#ff7043', '#81c784'];
+
+  for (let i = 0; i < 80; i++) {
+    particles.push({
+      x: Math.random() * canvas.width,
+      y: canvas.height + Math.random() * 200,
+      vx: (Math.random() - 0.5) * 3,
+      vy: -(Math.random() * 4 + 2),
+      r: Math.random() * 4 + 2,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      alpha: 1,
+      rot: Math.random() * Math.PI * 2,
+      rotV: (Math.random() - 0.5) * 0.2,
+    });
+  }
+
+  let raf;
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Deep space bg
+    const bg = ctx.createRadialGradient(canvas.width/2, canvas.height/2, 0, canvas.width/2, canvas.height/2, canvas.width);
+    bg.addColorStop(0, '#0d1a4a');
+    bg.addColorStop(1, '#020510');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    particles.forEach(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.05;
+      p.alpha -= 0.006;
+      p.rot += p.rotV;
+
+      if (p.alpha <= 0) return;
+
+      ctx.save();
+      ctx.globalAlpha = p.alpha;
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.r, -p.r, p.r * 2, p.r * 2);
+      ctx.restore();
+    });
+
+    if (particles.some(p => p.alpha > 0)) {
+      raf = requestAnimationFrame(draw);
+    }
+  }
+
+  draw();
+}
+
+// ============================================================
+//  HELPERS
+// ============================================================
+function lighten(hex, pct) {
+  const [r,g,b] = hexToRgb(hex);
+  return `rgb(${Math.min(255,r+pct)},${Math.min(255,g+pct)},${Math.min(255,b+pct)})`;
+}
+
+function darken(hex, pct) {
+  const [r,g,b] = hexToRgb(hex);
+  return `rgb(${Math.max(0,r-pct)},${Math.max(0,g-pct)},${Math.max(0,b-pct)})`;
+}
+
+function hexToRgb(hex) {
+  const m = hex.replace('#','').match(/.{2}/g);
+  return m.map(h => parseInt(h, 16));
+}
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i+1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// ============================================================
+//  INIT
+// ============================================================
+window.addEventListener('load', () => {
+  initStarfield();
+  startHomeAnimation();
+
+  // Hide loading
+  setTimeout(() => {
+    const overlay = document.getElementById('loading-overlay');
+    overlay.style.opacity = '0';
+    setTimeout(() => overlay.style.display = 'none', 500);
+  }, 1800);
+});
+
+// Clean up when leaving scene
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && solarRaf) {
+    cancelAnimationFrame(solarRaf);
+    solarRaf = null;
+  } else if (!document.hidden && currentPage === 'scene') {
+    drawSolar();
+  }
+});
+</script>
+</body>
+</html>
